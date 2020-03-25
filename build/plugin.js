@@ -14,7 +14,7 @@ async function main() {
     // const request = CodeGeneratorRequest.fromObject(json);
     const request = CodeGeneratorRequest.decode(stdin);
     const typeMap = types_1.createTypeMap(request, utils_1.optionsFromParameter(request.parameter));
-    const files = request.protoFile.map(file => {
+    const files = request.protoFile.map((file) => {
         const spec = main_1.generateFile(typeMap, file, request.parameter);
         const filenames = spec.path.split('/');
         const filename = filenames[filenames.length - 1];

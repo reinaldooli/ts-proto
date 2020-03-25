@@ -15,7 +15,7 @@ async function main() {
 
   const request = CodeGeneratorRequest.decode(stdin);
   const typeMap = createTypeMap(request, optionsFromParameter(request.parameter));
-  const files = request.protoFile.map(file => {
+  const files = request.protoFile.map((file: any) => {
     const spec = generateFile(typeMap, file, request.parameter);
 
     const filenames = spec.path.split('/');

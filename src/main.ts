@@ -83,6 +83,9 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
 
   // Syntax, unlike most fields, is not repeated and thus does not use an index
   const headerComment = sourceInfo.lookup(Fields.file.syntax, undefined);
+
+  process.stderr.write(JSON.stringify(headerComment));
+
   maybeAddComment(headerComment, text => (file = file.addComment(text)));
 
   // first make all the type declarations

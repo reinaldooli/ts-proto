@@ -33,6 +33,7 @@ function generateFile(typeMap, fileDesc, parameter) {
     const sourceInfo = sourceInfo_1.default.fromDescriptor(fileDesc);
     // Syntax, unlike most fields, is not repeated and thus does not use an index
     const headerComment = sourceInfo.lookup(sourceInfo_1.Fields.file.syntax, undefined);
+    process.stderr.write(JSON.stringify(headerComment));
     utils_1.maybeAddComment(headerComment, text => (file = file.addComment(text)));
     // first make all the type declarations
     visit(fileDesc, sourceInfo, (fullName, message, sInfo) => {
