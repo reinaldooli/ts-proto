@@ -188,7 +188,7 @@ function generateEnum(options, fullName, enumDesc, sourceInfo) {
     for (const valueDesc of enumDesc.value) {
         const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index++);
         utils_1.maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-        code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
+        code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `'${valueDesc.name}'` : valueDesc.number);
     }
     if (options.outputJsonMethods) {
         // code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
