@@ -471,7 +471,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
                 // return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
-                return ts_poet_1.CodeBlock.of('%L', types_1.basicTypeName(typeMap, field, options), from);
+                return ts_poet_1.CodeBlock.of('%L', from);
             }
             else if (types_1.isPrimitive(field)) {
                 // Convert primitives using the String(value)/Number(value) cstr, except for bytes
@@ -558,7 +558,7 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
                 // return CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
-                return ts_poet_1.CodeBlock.of('%L', types_1.basicTypeName(typeMap, field, options), from);
+                return ts_poet_1.CodeBlock.of('%L', from);
             }
             else if (types_1.isTimestamp(field)) {
                 return ts_poet_1.CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);

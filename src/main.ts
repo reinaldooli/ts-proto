@@ -670,7 +670,7 @@ function generateFromJson(
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
         // return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
-        return CodeBlock.of('%L', basicTypeName(typeMap, field, options), from);
+        return CodeBlock.of('%L', from);
       } else if (isPrimitive(field)) {
         // Convert primitives using the String(value)/Number(value) cstr, except for bytes
         if (isBytes(field)) {
@@ -767,7 +767,7 @@ function generateToJson(
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
         // return CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
-        return CodeBlock.of('%L', basicTypeName(typeMap, field, options), from);
+        return CodeBlock.of('%L', from);
       } else if (isTimestamp(field)) {
         return CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);
       } else if (isMessage(field) && !isValueType(field) && !isMapType(typeMap, messageDesc, field, options)) {
