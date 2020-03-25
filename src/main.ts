@@ -935,6 +935,7 @@ function generateService(
       requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
     }
     requestFn = requestFn.returns(responseObservable(typeMap, methodDesc));
+    requestFn = requestFn.returns(responsePromise(typeMap, methodDesc));
     service = service.addFunction(requestFn);
 
     if (options.useContext) {
