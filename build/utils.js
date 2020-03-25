@@ -70,8 +70,8 @@ function optionsFromParameter(parameter) {
         if (parameter.includes('outputNestJs=true')) {
             options.outputNestJs = true;
         }
-        if (parameter.includes('useEnumNames=false')) {
-            options.useEnumNames = false;
+        if (parameter.includes('useEnumNames=true')) {
+            options.useEnumNames = true;
         }
     }
     return options;
