@@ -1213,7 +1213,7 @@ function responsePromise(typeMap: TypeMap, methodDesc: MethodDescriptorProto): T
 }
 
 function responseObservable(typeMap: TypeMap, methodDesc: MethodDescriptorProto): TypeName {
-  const ObservableType = 'Observable@rxjs/Observable';
+  const ObservableType = 'Observable@rxjs';
   return TypeNames.importedType(ObservableType).param(responseType(typeMap, methodDesc));
 }
 

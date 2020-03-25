@@ -876,7 +876,7 @@ function responsePromise(typeMap, methodDesc) {
     return ts_poet_1.TypeNames.PROMISE.param(responseType(typeMap, methodDesc));
 }
 function responseObservable(typeMap, methodDesc) {
-    const ObservableType = 'Observable@rxjs/Observable';
+    const ObservableType = 'Observable@rxjs';
     return ts_poet_1.TypeNames.importedType(ObservableType).param(responseType(typeMap, methodDesc));
 }
 // function generateOneOfProperty(typeMap: TypeMap, name: string, fields: FieldDescriptorProto[]): PropertySpec {
