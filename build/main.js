@@ -138,7 +138,7 @@ function addDeepPartialType(file) {
         .add('};'));
 }
 function addTimestampMethods(file, options) {
-    const timestampType = 'Timestamp@./google/protobuf/timestamp';
+    const timestampType = 'Timestamp@./timestamp';
     let secondsCodeLine = 'const seconds = date.getTime() / 1_000';
     let toNumberCode = 't.seconds';
     if (options.forceLong === LongOption.LONG) {
