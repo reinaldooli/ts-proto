@@ -227,6 +227,7 @@ function addDeepPartialType(file: FileSpec): FileSpec {
 
 function addTimestampMethods(file: FileSpec, options: Options): FileSpec {
   const timestampType = 'Timestamp@./google/protobuf/timestamp';
+  const observableType = 'Observable@rxjs/Observable';
 
   let secondsCodeLine = 'const seconds = date.getTime() / 1_000';
   let toNumberCode = 't.seconds';
@@ -269,7 +270,7 @@ function addTimestampMethods(file: FileSpec, options: Options): FileSpec {
           CodeBlock.empty()
             .beginControlFlow('if (o instanceof Date)')
             .addStatement('return o')
-            .nextControlFlow('else if (typeof o === "string")')
+            .nextControlFlow("else if (typeof o === 'string')")
             .addStatement('return new Date(o)')
             .nextControlFlow('else')
             .addStatement('return fromTimestamp(Timestamp.fromJSON(o))')

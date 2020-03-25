@@ -16,6 +16,7 @@ async function main() {
     const typeMap = types_1.createTypeMap(request, utils_1.optionsFromParameter(request.parameter));
     const files = request.protoFile.map(file => {
         const spec = main_1.generateFile(typeMap, file, request.parameter);
+        process.stderr.write(spec.path);
         return new CodeGeneratorResponse.File({
             name: spec.path,
             content: prefixDisableLinter(spec)
@@ -28,7 +29,7 @@ async function main() {
 }
 main()
     .then(() => {
-    process.stderr.write('DONE');
+    process.stderr.write('GEN DONE');
     process.exit(0);
 })
     .catch(e => {
