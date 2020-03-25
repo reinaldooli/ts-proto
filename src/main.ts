@@ -297,8 +297,8 @@ function generateEnum(
   }
 
   if (options.outputJsonMethods) {
-    code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
-    code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
+    // code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
+    // code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
   }
 
   code = code.endControlFlow();
