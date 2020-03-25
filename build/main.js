@@ -179,12 +179,12 @@ function addTimestampMethods(file, options) {
 function generateEnum(options, fullName, enumDesc, sourceInfo) {
     let code = ts_poet_1.CodeBlock.empty();
     utils_1.maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
-    code = code.beginControlFlow('export enum %L =', fullName);
+    code = code.beginControlFlow('export enum %L', fullName);
     let index = 0;
     for (const valueDesc of enumDesc.value) {
         const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index++);
         utils_1.maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-        code = code.add('%L: %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
+        code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
     }
     if (options.outputJsonMethods) {
         code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));

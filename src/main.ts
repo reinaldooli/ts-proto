@@ -286,13 +286,13 @@ function generateEnum(
 ): CodeBlock {
   let code = CodeBlock.empty();
   maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
-  code = code.beginControlFlow('export enum %L =', fullName);
+  code = code.beginControlFlow('export enum %L', fullName);
 
   let index = 0;
   for (const valueDesc of enumDesc.value) {
     const info = sourceInfo.lookup(Fields.enum.value, index++);
     maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-    code = code.add('%L: %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
+    code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
   }
 
   if (options.outputJsonMethods) {
