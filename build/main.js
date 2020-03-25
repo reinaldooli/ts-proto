@@ -77,6 +77,9 @@ function generateFile(typeMap, fileDesc, parameter) {
             file = file.addInterface(generateDataLoadersType(options));
         }
     }
+    if (options.outputNestJs && options.useContext) {
+        file = file.addInterface(generateDataLoadersType(options));
+    }
     let hasAnyTimestamps = false;
     visit(fileDesc, sourceInfo, (_, messageType) => {
         hasAnyTimestamps = hasAnyTimestamps || sequency_1.asSequence(messageType.field).any(types_1.isTimestamp);

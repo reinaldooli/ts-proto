@@ -147,6 +147,10 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
     }
   }
 
+  if (options.outputNestJs && options.useContext) {
+    file = file.addInterface(generateDataLoadersType(options));
+  }
+
   let hasAnyTimestamps = false;
   visit(
     fileDesc,
