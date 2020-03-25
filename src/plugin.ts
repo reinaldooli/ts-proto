@@ -17,8 +17,10 @@ async function main() {
   const files = request.protoFile.map(file => {
     const spec = generateFile(typeMap, file, request.parameter);
     process.stderr.write(spec.path);
+    const filenames = spec.path.split('/');
+    const filename = filenames[filenames.length - 1];
     return new CodeGeneratorResponse.File({
-      name: spec.path,
+      name: filename,
       content: prefixDisableLinter(spec)
     });
   });

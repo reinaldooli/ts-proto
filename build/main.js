@@ -139,7 +139,6 @@ function addDeepPartialType(file) {
 }
 function addTimestampMethods(file, options) {
     const timestampType = 'Timestamp@./google/protobuf/timestamp';
-    const observableType = 'Observable@rxjs/Observable';
     let secondsCodeLine = 'const seconds = date.getTime() / 1_000';
     let toNumberCode = 't.seconds';
     if (options.forceLong === LongOption.LONG) {
