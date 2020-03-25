@@ -12,6 +12,7 @@ async function main() {
   const stdin = await readToBuffer(process.stdin);
   // const json = JSON.parse(stdin.toString());
   // const request = CodeGeneratorRequest.fromObject(json);
+
   const request = CodeGeneratorRequest.decode(stdin);
   const typeMap = createTypeMap(request, optionsFromParameter(request.parameter));
   const files = request.protoFile.map(file => {
