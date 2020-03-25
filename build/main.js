@@ -67,6 +67,7 @@ function generateFile(typeMap, fileDesc, parameter) {
     }
     visitServices(fileDesc, sourceInfo, (serviceDesc, sInfo) => {
         file = file.addInterface(generateService(typeMap, fileDesc, sInfo, serviceDesc, options));
+        file = file.addInterface(generateServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
         file = !options.outputClientImpl
             ? file
             : file.addClass(generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options));
@@ -676,6 +677,42 @@ function generateService(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
     let index = 0;
     for (const methodDesc of serviceDesc.method) {
         let requestFn = ts_poet_1.FunctionSpec.create(utils_1.toCamelCaseString(methodDesc.name));
+        if (options.useContext && !options.outputNestJs) {
+            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+        }
+        const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index++);
+        utils_1.maybeAddComment(info, text => (requestFn = requestFn.addJavadoc(text)));
+        requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc));
+        if (options.useContext && options.outputNestJs) {
+            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+        }
+        requestFn = requestFn.returns(responsePromise(typeMap, methodDesc));
+        service = service.addFunction(requestFn);
+        if (options.useContext) {
+            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
+            if (batchMethod) {
+                const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
+                let batchFn = ts_poet_1.FunctionSpec.create(name);
+                if (options.useContext) {
+                    batchFn = batchFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+                }
+                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
+                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
+                service = service.addFunction(batchFn);
+            }
+        }
+    }
+    return service;
+}
+function generateServiceClient(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
+    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name).addModifiers(ts_poet_1.Modifier.EXPORT);
+    if (options.useContext) {
+        service = service.addTypeVariable(contextTypeVar);
+    }
+    utils_1.maybeAddComment(sourceInfo, text => (service = service.addJavadoc(text)));
+    let index = 0;
+    for (const methodDesc of serviceDesc.method) {
+        let requestFn = ts_poet_1.FunctionSpec.create(utils_1.toCamelCaseString(methodDesc.name + 'Client'));
         if (options.useContext && !options.outputNestJs) {
             requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
         }

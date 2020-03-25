@@ -135,6 +135,7 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
 
   visitServices(fileDesc, sourceInfo, (serviceDesc, sInfo) => {
     file = file.addInterface(generateService(typeMap, fileDesc, sInfo, serviceDesc, options));
+    file = file.addInterface(generateServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
     file = !options.outputClientImpl
       ? file
       : file.addClass(generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options));
@@ -934,8 +935,53 @@ function generateService(
     if (options.useContext && options.outputNestJs) {
       requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
     }
-    requestFn = requestFn.returns(responseObservable(typeMap, methodDesc));
     requestFn = requestFn.returns(responsePromise(typeMap, methodDesc));
+    service = service.addFunction(requestFn);
+
+    if (options.useContext) {
+      const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
+      if (batchMethod) {
+        const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
+        let batchFn = FunctionSpec.create(name);
+        if (options.useContext) {
+          batchFn = batchFn.addParameter('ctx', TypeNames.typeVariable('Context'));
+        }
+        batchFn = batchFn.addParameter(singular(batchMethod.inputFieldName), batchMethod.inputType);
+        batchFn = batchFn.returns(TypeNames.PROMISE.param(batchMethod.outputType));
+        service = service.addFunction(batchFn);
+      }
+    }
+  }
+  return service;
+}
+
+function generateServiceClient(
+  typeMap: TypeMap,
+  fileDesc: FileDescriptorProto,
+  sourceInfo: SourceInfo,
+  serviceDesc: ServiceDescriptorProto,
+  options: Options
+): InterfaceSpec {
+  let service = InterfaceSpec.create(serviceDesc.name).addModifiers(Modifier.EXPORT);
+  if (options.useContext) {
+    service = service.addTypeVariable(contextTypeVar);
+  }
+  maybeAddComment(sourceInfo, text => (service = service.addJavadoc(text)));
+
+  let index = 0;
+  for (const methodDesc of serviceDesc.method) {
+    let requestFn = FunctionSpec.create(toCamelCaseString(methodDesc.name+'Client'));
+    if (options.useContext && !options.outputNestJs) {
+      requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
+    }
+    const info = sourceInfo.lookup(Fields.service.method, index++);
+    maybeAddComment(info, text => (requestFn = requestFn.addJavadoc(text)));
+
+    requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc));
+    if (options.useContext && options.outputNestJs) {
+      requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
+    }
+    requestFn = requestFn.returns(responseObservable(typeMap, methodDesc));
     service = service.addFunction(requestFn);
 
     if (options.useContext) {
