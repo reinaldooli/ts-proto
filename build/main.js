@@ -470,7 +470,8 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
         // get a generic 'reader.doSomething' bit that is specific to the basic type
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
-                return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                // return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
+                return ts_poet_1.CodeBlock.of('%L', types_1.basicTypeName(typeMap, field, options), from);
             }
             else if (types_1.isPrimitive(field)) {
                 // Convert primitives using the String(value)/Number(value) cstr, except for bytes
@@ -556,7 +557,8 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
         const fieldName = maybeSnakeToCamel(field.name, options);
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
-                return ts_poet_1.CodeBlock.of('%T.toJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                // return CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
+                return ts_poet_1.CodeBlock.of('%L', types_1.basicTypeName(typeMap, field, options), from);
             }
             else if (types_1.isTimestamp(field)) {
                 return ts_poet_1.CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);

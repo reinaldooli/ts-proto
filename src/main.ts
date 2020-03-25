@@ -669,7 +669,8 @@ function generateFromJson(
     // get a generic 'reader.doSomething' bit that is specific to the basic type
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
-        return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
+        // return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
+        return CodeBlock.of('%L', basicTypeName(typeMap, field, options), from);
       } else if (isPrimitive(field)) {
         // Convert primitives using the String(value)/Number(value) cstr, except for bytes
         if (isBytes(field)) {
