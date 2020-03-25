@@ -962,7 +962,7 @@ function generateServiceClient(
   serviceDesc: ServiceDescriptorProto,
   options: Options
 ): InterfaceSpec {
-  let service = InterfaceSpec.create(serviceDesc.name).addModifiers(Modifier.EXPORT);
+  let service = InterfaceSpec.create(serviceDesc.name+'Client').addModifiers(Modifier.EXPORT);
   if (options.useContext) {
     service = service.addTypeVariable(contextTypeVar);
   }
@@ -970,7 +970,7 @@ function generateServiceClient(
 
   let index = 0;
   for (const methodDesc of serviceDesc.method) {
-    let requestFn = FunctionSpec.create(toCamelCaseString(methodDesc.name+'Client'));
+    let requestFn = FunctionSpec.create(toCamelCaseString(methodDesc.name));
     if (options.useContext && !options.outputNestJs) {
       requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
     }

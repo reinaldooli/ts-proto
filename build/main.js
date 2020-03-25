@@ -705,14 +705,14 @@ function generateService(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
     return service;
 }
 function generateServiceClient(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name).addModifiers(ts_poet_1.Modifier.EXPORT);
+    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name + 'Client').addModifiers(ts_poet_1.Modifier.EXPORT);
     if (options.useContext) {
         service = service.addTypeVariable(contextTypeVar);
     }
     utils_1.maybeAddComment(sourceInfo, text => (service = service.addJavadoc(text)));
     let index = 0;
     for (const methodDesc of serviceDesc.method) {
-        let requestFn = ts_poet_1.FunctionSpec.create(utils_1.toCamelCaseString(methodDesc.name + 'Client'));
+        let requestFn = ts_poet_1.FunctionSpec.create(utils_1.toCamelCaseString(methodDesc.name));
         if (options.useContext && !options.outputNestJs) {
             requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
         }
