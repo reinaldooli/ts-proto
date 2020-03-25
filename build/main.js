@@ -187,8 +187,8 @@ function generateEnum(options, fullName, enumDesc, sourceInfo) {
         code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
     }
     if (options.outputJsonMethods) {
-        code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
-        code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
+        // code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
+        // code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
     }
     code = code.endControlFlow();
     code = code.add('\n');
