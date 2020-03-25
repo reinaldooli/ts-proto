@@ -905,7 +905,7 @@ function generateDataLoadersType(options) {
         .addParameter('constructorFn', ts_poet_1.TypeNames.lambda2([], ts_poet_1.TypeNames.typeVariable('T')))
         .returns(ts_poet_1.TypeNames.typeVariable('T'));
     return ts_poet_1.InterfaceSpec.create('DataLoaders')
-        .addModifiers(ts_poet_1.Modifier.EXPORT)
+        //.addModifiers(Modifier.EXPORT)
         .addFunction(fn);
 }
 function requestType(typeMap, methodDesc) {

@@ -1249,7 +1249,7 @@ function generateDataLoadersType(options: Options): InterfaceSpec {
     .addParameter('constructorFn', TypeNames.lambda2([], TypeNames.typeVariable('T')))
     .returns(TypeNames.typeVariable('T'));
   return InterfaceSpec.create('DataLoaders')
-    .addModifiers(Modifier.EXPORT)
+    //.addModifiers(Modifier.EXPORT)
     .addFunction(fn);
 }
 
