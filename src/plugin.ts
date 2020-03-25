@@ -19,7 +19,12 @@ async function main() {
     const spec = generateFile(typeMap, file, request.parameter);
 
     const filenames = spec.path.split('/');
-    const filename = filenames[filenames.length - 1];
+    let filename = '';
+    if (filenames[0] === 'google') {
+      filename = spec.path;
+    } else  {
+      filename = filenames[filenames.length - 1];
+    }
     return new CodeGeneratorResponse.File({
       name: filename,
       content: prefixDisableLinter(spec)
