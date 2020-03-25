@@ -31,6 +31,9 @@ async function generate(binFile: string, baseDir: string, parameter: string) {
     const filePath = `${baseDir}/${spec.path}`;
     const dirPath = parse(filePath).dir;
     await promisify(mkdir)(dirPath, { recursive: true }).catch(() => {});
+    console.log('baseDir ', baseDir);
+    console.log('dirPath ', dirPath);
+    console.log('filePath ', filePath);
     await promisify(writeFile)(filePath, spec.toString());
   }
 }

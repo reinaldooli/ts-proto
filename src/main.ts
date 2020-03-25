@@ -35,7 +35,7 @@ import {
 } from './types';
 import { asSequence } from 'sequency';
 import SourceInfo, { Fields } from './sourceInfo';
-import { maybeAddComment, optionsFromParameter, singular } from './utils';
+import { maybeAddComment, optionsFromParameter, singular, toCamelCaseString } from './utils';
 import DescriptorProto = google.protobuf.DescriptorProto;
 import FieldDescriptorProto = google.protobuf.FieldDescriptorProto;
 import FileDescriptorProto = google.protobuf.FileDescriptorProto;
@@ -58,6 +58,8 @@ export type Options = {
   outputEncodeMethods: boolean;
   outputJsonMethods: boolean;
   outputClientImpl: boolean;
+  useEnumNames: boolean;
+  outputNestJs: boolean;
 };
 
 export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, parameter: string): FileSpec {
@@ -284,13 +286,13 @@ function generateEnum(
 ): CodeBlock {
   let code = CodeBlock.empty();
   maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
-  code = code.beginControlFlow('export const %L =', fullName);
+  code = code.beginControlFlow('export enum %L =', fullName);
 
   let index = 0;
   for (const valueDesc of enumDesc.value) {
     const info = sourceInfo.lookup(Fields.enum.value, index++);
     maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-    code = code.add('%L: %L as %L,\n', valueDesc.name, valueDesc.number.toString(), fullName);
+    code = code.add('%L: %L,\n', valueDesc.name, options.useEnumNames ? `"${valueDesc.name}"` : valueDesc.number);
   }
 
   if (options.outputJsonMethods) {
@@ -300,10 +302,6 @@ function generateEnum(
 
   code = code.endControlFlow();
   code = code.add('\n');
-
-  code = code.add('export type %L = %L;', fullName, enumDesc.value.map(v => v.number.toString()).join(' | '));
-  code = code.add('\n');
-
   return code;
 }
 
@@ -918,15 +916,18 @@ function generateService(
 
   let index = 0;
   for (const methodDesc of serviceDesc.method) {
-    let requestFn = FunctionSpec.create(methodDesc.name);
-    if (options.useContext) {
+    let requestFn = FunctionSpec.create(toCamelCaseString(methodDesc.name));
+    if (options.useContext && !options.outputNestJs) {
       requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
     }
     const info = sourceInfo.lookup(Fields.service.method, index++);
     maybeAddComment(info, text => (requestFn = requestFn.addJavadoc(text)));
 
     requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc));
-    requestFn = requestFn.returns(responsePromise(typeMap, methodDesc));
+    if (options.useContext && options.outputNestJs) {
+      requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
+    }
+    requestFn = requestFn.returns(responseObservable(typeMap, methodDesc));
     service = service.addFunction(requestFn);
 
     if (options.useContext) {
@@ -1208,6 +1209,10 @@ function responseType(typeMap: TypeMap, methodDesc: MethodDescriptorProto): Type
 
 function responsePromise(typeMap: TypeMap, methodDesc: MethodDescriptorProto): TypeName {
   return TypeNames.PROMISE.param(responseType(typeMap, methodDesc));
+}
+
+function responseObservable(typeMap: TypeMap, methodDesc: MethodDescriptorProto): TypeName {
+  return TypeNames.importedType('Observable').param(responseType(typeMap, methodDesc));
 }
 
 // function generateOneOfProperty(typeMap: TypeMap, name: string, fields: FieldDescriptorProto[]): PropertySpec {
