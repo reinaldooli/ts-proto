@@ -152,8 +152,6 @@ function toCamelCase(inputArray: any) {
 }
 
 export function toCamelCaseString(input: string) {
-
   let words = toWords(input);
   return toCamelCase(words);
-
 }
