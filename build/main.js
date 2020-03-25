@@ -36,7 +36,12 @@ function generateFile(typeMap, fileDesc, parameter) {
     utils_1.maybeAddComment(headerComment, text => (file = file.addComment(text)));
     // first make all the type declarations
     visit(fileDesc, sourceInfo, (fullName, message, sInfo) => {
-        file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
+        if (options.asClass) {
+            file = file.addClass(generateClassDeclaration(typeMap, fullName, message, sInfo, options));
+        }
+        else {
+            file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
+        }
     }, options, (fullName, enumDesc, sInfo) => {
         file = file.addCode(generateEnum(options, fullName, enumDesc, sInfo));
     });
@@ -232,6 +237,19 @@ function generateEnumToJson(fullName, enumDesc) {
 // Create the interface with properties
 function generateInterfaceDeclaration(typeMap, fullName, messageDesc, sourceInfo, options) {
     let message = ts_poet_1.InterfaceSpec.create(fullName).addModifiers(ts_poet_1.Modifier.EXPORT);
+    utils_1.maybeAddComment(sourceInfo, text => (message = message.addJavadoc(text)));
+    let index = 0;
+    for (const fieldDesc of messageDesc.field) {
+        let prop = ts_poet_1.PropertySpec.create(maybeSnakeToCamel(fieldDesc.name, options), types_1.toTypeName(typeMap, messageDesc, fieldDesc, options));
+        const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index++);
+        utils_1.maybeAddComment(info, text => (prop = prop.addJavadoc(text)));
+        message = message.addProperty(prop);
+    }
+    return message;
+}
+// Create the interface with properties
+function generateClassDeclaration(typeMap, fullName, messageDesc, sourceInfo, options) {
+    let message = ts_poet_1.ClassSpec.create(fullName).addModifiers(ts_poet_1.Modifier.EXPORT);
     utils_1.maybeAddComment(sourceInfo, text => (message = message.addJavadoc(text)));
     let index = 0;
     for (const fieldDesc of messageDesc.field) {

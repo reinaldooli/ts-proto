@@ -45,6 +45,7 @@ export function optionsFromParameter(parameter: string): Options {
     outputClientImpl: true,
     useEnumNames: false,
     outputNestJs: false,
+    asClass: false,
   };
 
   if (parameter) {
@@ -74,6 +75,9 @@ export function optionsFromParameter(parameter: string): Options {
     }
     if (parameter.includes('useEnumNames=true')) {
       options.useEnumNames = true;
+    }
+    if (parameter.includes('asClass=true')) {
+      options.asClass = true;
     }
   }
   return options;

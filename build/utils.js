@@ -44,6 +44,7 @@ function optionsFromParameter(parameter) {
         outputClientImpl: true,
         useEnumNames: false,
         outputNestJs: false,
+        asClass: false,
     };
     if (parameter) {
         if (parameter.includes('context=true')) {
@@ -72,6 +73,9 @@ function optionsFromParameter(parameter) {
         }
         if (parameter.includes('useEnumNames=true')) {
             options.useEnumNames = true;
+        }
+        if (parameter.includes('asClass=true')) {
+            options.asClass = true;
         }
     }
     return options;
