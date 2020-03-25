@@ -162,10 +162,14 @@ function packedType(type) {
 exports.packedType = packedType;
 function defaultValue(type, options) {
     switch (type) {
+        case FieldDescriptorProto.Type.TYPE_ENUM:
+            if (options.useEnumNames)
+                return '';
+            else
+                return 0;
         case FieldDescriptorProto.Type.TYPE_DOUBLE:
         case FieldDescriptorProto.Type.TYPE_FLOAT:
         case FieldDescriptorProto.Type.TYPE_INT32:
-        case FieldDescriptorProto.Type.TYPE_ENUM:
         case FieldDescriptorProto.Type.TYPE_UINT32:
         case FieldDescriptorProto.Type.TYPE_SINT32:
         case FieldDescriptorProto.Type.TYPE_FIXED32:
@@ -177,7 +181,7 @@ function defaultValue(type, options) {
                 return ts_poet_1.CodeBlock.of('%T.UZERO', 'Long*long');
             }
             else if (options.forceLong === main_1.LongOption.STRING) {
-                return '"0"';
+                return "'0'";
             }
             else {
                 return 0;
@@ -189,7 +193,7 @@ function defaultValue(type, options) {
                 return ts_poet_1.CodeBlock.of('%T.ZERO', 'Long*long');
             }
             else if (options.forceLong === main_1.LongOption.STRING) {
-                return '"0"';
+                return "'0'";
             }
             else {
                 return 0;
@@ -197,7 +201,7 @@ function defaultValue(type, options) {
         case FieldDescriptorProto.Type.TYPE_BOOL:
             return false;
         case FieldDescriptorProto.Type.TYPE_STRING:
-            return '""';
+            return "''";
         case FieldDescriptorProto.Type.TYPE_BYTES:
         case FieldDescriptorProto.Type.TYPE_MESSAGE:
         default:
