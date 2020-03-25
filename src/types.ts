@@ -164,7 +164,7 @@ export function defaultValue(type: FieldDescriptorProto.Type, options: Options):
   switch (type) {
     case FieldDescriptorProto.Type.TYPE_ENUM:
       if (options.useEnumNames)
-        return '';
+        return "''";
       else
         return 0;
     case FieldDescriptorProto.Type.TYPE_DOUBLE:
