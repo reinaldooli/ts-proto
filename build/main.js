@@ -188,19 +188,34 @@ function addTimestampMethods(file, options) {
 function generateEnum(options, fullName, enumDesc, sourceInfo) {
     let code = ts_poet_1.CodeBlock.empty();
     utils_1.maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
-    code = code.beginControlFlow('export enum %L', fullName);
-    let index = 0;
-    for (const valueDesc of enumDesc.value) {
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index++);
-        utils_1.maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-        code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `'${valueDesc.name}'` : valueDesc.number);
+    if (options.useEnumNames) {
+        code = code.beginControlFlow('export enum %L', fullName);
+        let index = 0;
+        for (const valueDesc of enumDesc.value) {
+            const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index++);
+            utils_1.maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
+            code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `'${valueDesc.name}'` : valueDesc.number);
+        }
+        code = code.endControlFlow();
+        code = code.add('\n');
     }
-    if (options.outputJsonMethods) {
-        // code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
-        // code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
+    else {
+        code = code.beginControlFlow('export const %L =', fullName);
+        let index = 0;
+        for (const valueDesc of enumDesc.value) {
+            const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index++);
+            utils_1.maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
+            code = code.add('%L: %L as %L,\n', valueDesc.name, valueDesc.number.toString(), fullName);
+        }
+        if (options.outputJsonMethods) {
+            code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
+            code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
+        }
+        code = code.endControlFlow();
+        code = code.add('\n');
+        code = code.add('export type %L = %L;', fullName, enumDesc.value.map(v => v.number.toString()).join(' | '));
+        code = code.add('\n');
     }
-    code = code.endControlFlow();
-    code = code.add('\n');
     return code;
 }
 function generateEnumFromJson(fullName, enumDesc) {
