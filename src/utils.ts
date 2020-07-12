@@ -50,6 +50,8 @@ export function defaultOptions(): Options {
     addGrpcMetadata: false,
     nestJs: false,
     env: EnvOption.BOTH,
+    useEnumNames: false,
+    asClass: false,
   };
 }
 
@@ -113,6 +115,12 @@ export function optionsFromParameter(parameter: string): Options {
     if (parameter.includes('env=browser')) {
       options.env = EnvOption.BROWSER;
     }
+    if (parameter.includes('useEnumNames=true')) {
+      options.useEnumNames = true;
+    }
+    if (parameter.includes('asClass=true')) {
+      options.asClass = true;
+    }
   }
   return options;
 }
@@ -134,4 +142,50 @@ export function maybeAddComment(desc: SourceDescription, process: (comment: stri
       (desc.leadingComments || desc.trailingComments || '').replace(PercentAll, '%%').replace(CloseComment, '* /')
     );
   }
+}
+
+// util function to convert the input to string type
+function convertToString(input: any) {
+  if (input) {
+    if (typeof input === 'string') {
+      return input;
+    }
+
+    return String(input);
+  }
+  return '';
+}
+
+// convert string to words
+function toWords(input: string) {
+  input = convertToString(input);
+
+  var regex = /[A-Z\xC0-\xD6\xD8-\xDE]?[a-z\xDF-\xF6\xF8-\xFF]+|[A-Z\xC0-\xD6\xD8-\xDE]+(?![a-z\xDF-\xF6\xF8-\xFF])|\d+/g;
+
+  return input.match(regex);
+}
+
+// convert the input array to camel case
+function toCamelCase(inputArray: any) {
+  let result = '';
+
+  for (let i = 0, len = inputArray.length; i < len; i++) {
+    let currentStr = inputArray[i];
+
+    let tempStr = currentStr.toLowerCase();
+
+    if (i != 0) {
+      // convert first letter to upper case (the word is in lowercase)
+      tempStr = tempStr.substr(0, 1).toUpperCase() + tempStr.substr(1);
+    }
+
+    result += tempStr;
+  }
+
+  return result;
+}
+
+export function toCamelCaseString(input: string) {
+  let words = toWords(input);
+  return toCamelCase(words);
 }

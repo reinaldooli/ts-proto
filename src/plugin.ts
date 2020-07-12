@@ -12,10 +12,19 @@ async function main() {
   const stdin = await readToBuffer(process.stdin);
   // const json = JSON.parse(stdin.toString());
   // const request = CodeGeneratorRequest.fromObject(json);
+
   const request = CodeGeneratorRequest.decode(stdin);
   const typeMap = createTypeMap(request, optionsFromParameter(request.parameter));
   const files = request.protoFile.map((file) => {
     const spec = generateFile(typeMap, file, request.parameter);
+
+    const filenames = spec.path.split('/');
+    let filename = '';
+    if (filenames[0] === 'google') {
+      filename = spec.path;
+    } else {
+      filename = filenames[filenames.length - 1];
+    }
     return new CodeGeneratorResponse.File({
       name: spec.path,
       content: prefixDisableLinter(spec),
@@ -29,7 +38,7 @@ async function main() {
 
 main()
   .then(() => {
-    process.stderr.write('DONE');
+    process.stderr.write('GEN DONE');
     process.exit(0);
   })
   .catch((e) => {

@@ -192,7 +192,7 @@ export function defaultValue(typeMap: TypeMap, field: FieldDescriptorProto, opti
       if (options.forceLong === LongOption.LONG) {
         return CodeBlock.of('%T.UZERO', 'Long*long');
       } else if (options.forceLong === LongOption.STRING) {
-        return '"0"';
+        return "'0'";
       } else {
         return 0;
       }
@@ -209,7 +209,7 @@ export function defaultValue(typeMap: TypeMap, field: FieldDescriptorProto, opti
     case FieldDescriptorProto.Type.TYPE_BOOL:
       return false;
     case FieldDescriptorProto.Type.TYPE_STRING:
-      return '""';
+      return "''";
     case FieldDescriptorProto.Type.TYPE_BYTES:
     case FieldDescriptorProto.Type.TYPE_MESSAGE:
     default:
