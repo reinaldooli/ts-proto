@@ -74,6 +74,7 @@ export type Options = {
   outputJsonMethods: boolean;
   outputClientImpl: boolean;
   addGrpcMetadata: boolean;
+  addNestjsRestParameter: boolean;
   returnObservable: boolean;
   lowerCaseServiceMethods: boolean;
   nestJs: boolean;
@@ -972,7 +973,14 @@ function generateToJson(
 
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
-        return CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
+        return isWithinOneOf(field)
+          ? CodeBlock.of(
+              '%L !== undefined ? %T.toJSON(%L) : undefined',
+              from,
+              basicTypeName(typeMap, field, options),
+              from
+            )
+          : CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
       } else if (isTimestamp(field)) {
         return CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);
       } else if (isMessage(field) && !isValueType(field) && !isMapType(typeMap, messageDesc, field, options)) {
@@ -1179,7 +1187,10 @@ function generateService(
     }
     // Use metadata as last argument for interface only configuration
     if (options.addGrpcMetadata) {
-      requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
+      requestFn = requestFn.addParameter(options.addNestjsRestParameter ? 'metadata' : 'metadata?', 'Metadata@grpc');
+    }
+    if (options.addNestjsRestParameter) {
+      requestFn = requestFn.addParameter('...rest', 'any');
     }
 
     // Return observable for interface only configuration, passing returnObservable=true and methodDesc.serverStreaming=true
@@ -1377,7 +1388,10 @@ function generateNestjsServiceController(
 
     // Use metadata as last argument for interface only configuration
     if (options.addGrpcMetadata) {
-      requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
+      requestFn = requestFn.addParameter(options.addNestjsRestParameter ? 'metadata' : 'metadata?', 'Metadata@grpc');
+    }
+    if (options.addNestjsRestParameter) {
+      requestFn = requestFn.addParameter('...rest', 'any');
     }
 
     // Return observable for interface only configuration, passing returnObservable=true and methodDesc.serverStreaming=true
@@ -1444,7 +1458,10 @@ function generateNestjsServiceClient(
 
     // Use metadata as last argument for interface only configuration
     if (options.addGrpcMetadata) {
-      requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
+      requestFn = requestFn.addParameter(options.addNestjsRestParameter ? 'metadata' : 'metadata?', 'Metadata@grpc');
+    }
+    if (options.addNestjsRestParameter) {
+      requestFn = requestFn.addParameter('...rest', 'any');
     }
 
     // Return observable since nestjs client always returns an Observable
