@@ -50,7 +50,6 @@ export function defaultOptions(): Options {
     addGrpcMetadata: false,
     nestJs: false,
     env: EnvOption.BOTH,
-    useEnumNames: false,
     asClass: false,
   };
 }
@@ -114,9 +113,6 @@ export function optionsFromParameter(parameter: string): Options {
     }
     if (parameter.includes('env=browser')) {
       options.env = EnvOption.BROWSER;
-    }
-    if (parameter.includes('useEnumNames=true')) {
-      options.useEnumNames = true;
     }
     if (parameter.includes('asClass=true')) {
       options.asClass = true;

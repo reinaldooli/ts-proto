@@ -25,8 +25,8 @@ async function main() {
             filename = filenames[filenames.length - 1];
         }
         return new CodeGeneratorResponse.File({
-            name: filename,
-            content: prefixDisableLinter(spec)
+            name: spec.path,
+            content: prefixDisableLinter(spec),
         });
     });
     const response = new CodeGeneratorResponse({ file: files });
@@ -39,7 +39,7 @@ main()
     process.stderr.write('GEN DONE');
     process.exit(0);
 })
-    .catch(e => {
+    .catch((e) => {
     process.stderr.write('FAILED!');
     process.stderr.write(e.message);
     process.stderr.write(e.stack);

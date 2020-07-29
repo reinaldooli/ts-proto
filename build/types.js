@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.detectMapType = exports.toTypeName = exports.messageToTypeName = exports.valueTypeName = exports.isEmptyType = exports.isValueType = exports.isTimestamp = exports.isMapType = exports.isLong = exports.isRepeated = exports.isWithinOneOf = exports.isEnum = exports.isMessage = exports.isBytes = exports.isPrimitive = exports.createTypeMap = exports.defaultValue = exports.packedType = exports.toReaderCall = exports.basicTypeName = exports.basicLongWireType = exports.basicWireType = void 0;
 const pbjs_1 = require("../build/pbjs");
 const ts_poet_1 = require("ts-poet");
 const main_1 = require("./main");
 const utils_1 = require("./utils");
-const sequency_1 = require("sequency");
 var FieldDescriptorProto = pbjs_1.google.protobuf.FieldDescriptorProto;
 const sourceInfo_1 = require("./sourceInfo");
 /** Based on https://github.com/dcodeIO/protobuf.js/blob/master/src/types.js#L37. */
@@ -54,7 +54,7 @@ function basicLongWireType(type) {
 }
 exports.basicLongWireType = basicLongWireType;
 /** Returns the type name without any repeated/required/etc. labels. */
-function basicTypeName(typeMap, field, options, keepValueType = false) {
+function basicTypeName(typeMap, field, options, typeOptions = {}) {
     switch (field.type) {
         case FieldDescriptorProto.Type.TYPE_DOUBLE:
         case FieldDescriptorProto.Type.TYPE_FLOAT:
@@ -84,10 +84,15 @@ function basicTypeName(typeMap, field, options, keepValueType = false) {
         case FieldDescriptorProto.Type.TYPE_STRING:
             return ts_poet_1.TypeNames.STRING;
         case FieldDescriptorProto.Type.TYPE_BYTES:
-            return ts_poet_1.TypeNames.anyType('Uint8Array');
+            if (options.env === main_1.EnvOption.NODE) {
+                return ts_poet_1.TypeNames.BUFFER;
+            }
+            else {
+                return ts_poet_1.TypeNames.anyType('Uint8Array');
+            }
         case FieldDescriptorProto.Type.TYPE_MESSAGE:
         case FieldDescriptorProto.Type.TYPE_ENUM:
-            return messageToTypeName(typeMap, field.typeName, keepValueType);
+            return messageToTypeName(typeMap, field.typeName, options, { ...typeOptions, repeated: isRepeated(field) });
         default:
             return ts_poet_1.TypeNames.anyType(field.typeName);
     }
@@ -160,13 +165,8 @@ function packedType(type) {
     }
 }
 exports.packedType = packedType;
-function defaultValue(type, options) {
-    switch (type) {
-        case FieldDescriptorProto.Type.TYPE_ENUM:
-            if (options.useEnumNames)
-                return "''";
-            else
-                return 0;
+function defaultValue(typeMap, field, options) {
+    switch (field.type) {
         case FieldDescriptorProto.Type.TYPE_DOUBLE:
         case FieldDescriptorProto.Type.TYPE_FLOAT:
         case FieldDescriptorProto.Type.TYPE_INT32:
@@ -175,6 +175,14 @@ function defaultValue(type, options) {
         case FieldDescriptorProto.Type.TYPE_FIXED32:
         case FieldDescriptorProto.Type.TYPE_SFIXED32:
             return 0;
+        case FieldDescriptorProto.Type.TYPE_ENUM:
+            // proto3 enforces enums starting at 0, however proto2 does not, so we have
+            // to probe and see if zero is an allowed value. If it's not, pick the first one.
+            // This is probably not great, but it's only used in fromJSON and fromPartial,
+            // and I believe the semantics of those in the proto2 world are generally undefined.
+            const enumProto = typeMap.get(field.typeName)[2];
+            const hasZero = enumProto.value.find((v) => v.number === 0);
+            return hasZero ? 0 : enumProto.value[0].number;
         case FieldDescriptorProto.Type.TYPE_UINT64:
         case FieldDescriptorProto.Type.TYPE_FIXED64:
             if (options.forceLong === main_1.LongOption.LONG) {
@@ -193,7 +201,7 @@ function defaultValue(type, options) {
                 return ts_poet_1.CodeBlock.of('%T.ZERO', 'Long*long');
             }
             else if (options.forceLong === main_1.LongOption.STRING) {
-                return "'0'";
+                return '"0"';
             }
             else {
                 return 0;
@@ -259,18 +267,18 @@ function isMapType(typeMap, messageDesc, field, options) {
 }
 exports.isMapType = isMapType;
 const valueTypes = {
-    '.google.protobuf.StringValue': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.STRING, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.Int32Value': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.Int64Value': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.UInt32Value': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.UInt64Value': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.BoolValue': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.BOOLEAN, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.DoubleValue': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.FloatValue': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.NUMBER, ts_poet_1.TypeNames.UNDEFINED),
-    '.google.protobuf.BytesValue': ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.anyType('Uint8Array'), ts_poet_1.TypeNames.UNDEFINED)
+    '.google.protobuf.StringValue': ts_poet_1.TypeNames.STRING,
+    '.google.protobuf.Int32Value': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.Int64Value': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.UInt32Value': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.UInt64Value': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.BoolValue': ts_poet_1.TypeNames.BOOLEAN,
+    '.google.protobuf.DoubleValue': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.FloatValue': ts_poet_1.TypeNames.NUMBER,
+    '.google.protobuf.BytesValue': ts_poet_1.TypeNames.anyType('Uint8Array'),
 };
 const mappedTypes = {
-    '.google.protobuf.Timestamp': ts_poet_1.TypeNames.DATE
+    '.google.protobuf.Timestamp': ts_poet_1.TypeNames.DATE,
 };
 function isTimestamp(field) {
     return field.typeName === '.google.protobuf.Timestamp';
@@ -280,14 +288,34 @@ function isValueType(field) {
     return field.typeName in valueTypes;
 }
 exports.isValueType = isValueType;
+function isEmptyType(typeName) {
+    return typeName === '.google.protobuf.Empty';
+}
+exports.isEmptyType = isEmptyType;
+function valueTypeName(field) {
+    if (!isValueType(field)) {
+        throw new Error('Type is not a valueType: ' + field.typeName);
+    }
+    return valueTypes[field.typeName];
+}
+exports.valueTypeName = valueTypeName;
 /** Maps `.some_proto_namespace.Message` to a TypeName. */
-function messageToTypeName(typeMap, protoType, keepValueType = false) {
-    // Watch for the wrapper types `.google.protobuf.StringValue` and map to `string | undefined`
-    if (!keepValueType && protoType in valueTypes) {
-        return valueTypes[protoType];
+function messageToTypeName(typeMap, protoType, options, typeOptions = {}) {
+    // Watch for the wrapper types `.google.protobuf.*Value`. If we're mapping
+    // them to basic built-in types, we union the type with undefined to
+    // indicate the value is optional. Exceptions:
+    // - If the field is repeated, values cannot be undefined.
+    // - If useOptionals=true, all non-scalar types are already optional
+    //   properties, so there's no need for that union.
+    if (!typeOptions.keepValueType && protoType in valueTypes) {
+        let typeName = valueTypes[protoType];
+        if (!!typeOptions.repeated || options.useOptionals) {
+            return typeName;
+        }
+        return ts_poet_1.TypeNames.unionType(typeName, ts_poet_1.TypeNames.UNDEFINED);
     }
     // Look for other special prototypes like Timestamp that aren't technically wrapper types
-    if (!keepValueType && protoType in mappedTypes) {
+    if (!typeOptions.keepValueType && protoType in mappedTypes) {
         return mappedTypes[protoType];
     }
     const [module, type] = toModuleAndType(typeMap, protoType);
@@ -300,19 +328,33 @@ function toModuleAndType(typeMap, protoType) {
 }
 /** Return the TypeName for any field (primitive/message/etc.) as exposed in the interface. */
 function toTypeName(typeMap, messageDesc, field, options) {
-    let type = basicTypeName(typeMap, field, options, false);
+    let type = basicTypeName(typeMap, field, options, { keepValueType: false });
     if (isRepeated(field)) {
         const mapType = detectMapType(typeMap, messageDesc, field, options);
         if (mapType) {
             const { keyType, valueType } = mapType;
-            type = ts_poet_1.TypeNames.anonymousType(new ts_poet_1.Member(`[key: ${keyType}]`, valueType));
+            return ts_poet_1.TypeNames.anonymousType(new ts_poet_1.Member(`[key: ${keyType}]`, valueType));
         }
-        else {
-            type = ts_poet_1.TypeNames.arrayType(type);
-        }
+        return ts_poet_1.TypeNames.arrayType(type);
     }
-    else if ((isWithinOneOf(field) || isMessage(field)) && !isValueType(field)) {
-        type = ts_poet_1.TypeNames.unionType(type, ts_poet_1.TypeNames.UNDEFINED);
+    if (isValueType(field)) {
+        // google.protobuf.*Value types are already unioned with `undefined`
+        // in messageToTypeName, so no need to consider them for that here.
+        return type;
+    }
+    // By default (useOptionals=false, oneof=properties), non-scalar fields
+    // outside oneofs and all fields within a oneof clause need to be unioned
+    // with `undefined` to indicate the value is optional.
+    //
+    // When useOptionals=true, non-scalar fields are translated to optional
+    // properties, so no need for the union with `undefined` here.
+    //
+    // When oneof=unions, we generate a single property for the entire `oneof`
+    // clause, spelling each option out inside a large type union. No need for
+    // union with `undefined` here, either.
+    if ((!isWithinOneOf(field) && isMessage(field) && !options.useOptionals) ||
+        (isWithinOneOf(field) && options.oneof === main_1.OneofOption.PROPERTIES)) {
+        return ts_poet_1.TypeNames.unionType(type, ts_poet_1.TypeNames.UNDEFINED);
     }
     return type;
 }
@@ -332,10 +374,3 @@ function detectMapType(typeMap, messageDesc, fieldDesc, options) {
     return undefined;
 }
 exports.detectMapType = detectMapType;
-function createOneOfsMap(message) {
-    return sequency_1.asSequence(message.field)
-        .filter(isWithinOneOf)
-        .groupBy(f => {
-        return message.oneofDecl[f.oneofIndex].name;
-    });
-}

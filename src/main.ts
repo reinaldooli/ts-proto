@@ -78,7 +78,6 @@ export type Options = {
   lowerCaseServiceMethods: boolean;
   nestJs: boolean;
   env: EnvOption;
-  useEnumNames: boolean;
   asClass: boolean;
 };
 
@@ -168,6 +167,7 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
         ? generateNestjsServiceController(typeMap, fileDesc, sInfo, serviceDesc, options)
         : generateService(typeMap, fileDesc, sInfo, serviceDesc, options)
     );
+    file = file.addInterface(generateServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
     if (options.nestJs) {
       // generate nestjs grpc client interface
       file = file.addInterface(generateNestjsServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
@@ -362,21 +362,6 @@ function addTimestampMethods(file: FileSpec, options: Options): FileSpec {
             .addStatement('millis += t.nanos / 1_000_000')
             .addStatement('return new Date(millis)')
         )
-    )
-    .addFunction(
-      FunctionSpec.create('fromJsonTimestamp')
-        .addParameter('o', 'any')
-        .returns('Date')
-        .addCodeBlock(
-          CodeBlock.empty()
-            .beginControlFlow('if (o instanceof Date)')
-            .addStatement('return o')
-            .nextControlFlow("else if (typeof o === 'string')")
-            .addStatement('return new Date(o)')
-            .nextControlFlow('else')
-            .addStatement('return fromTimestamp(Timestamp.fromJSON(o))')
-            .endControlFlow()
-        )
     );
 }
 
@@ -399,42 +384,19 @@ function generateEnum(
     code = code.add('%L: %L as const,\n', valueDesc.name, valueDesc.number.toString());
   });
   code = code.add('%L: %L as const,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
-  maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
 
-  if (options.useEnumNames) {
-    code = code.beginControlFlow('export enum %L', fullName);
-
-    let index = 0;
-    for (const valueDesc of enumDesc.value) {
-      const info = sourceInfo.lookup(Fields.enum.value, index++);
-      maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-      code = code.add('%L = %L,\n', valueDesc.name, options.useEnumNames ? `'${valueDesc.name}'` : valueDesc.number);
-    }
-
-    code = code.endControlFlow();
-    code = code.add('\n');
-  } else {
-    code = code.beginControlFlow('export const %L =', fullName);
-
-    let index = 0;
-    for (const valueDesc of enumDesc.value) {
-      const info = sourceInfo.lookup(Fields.enum.value, index++);
-      maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-      code = code.add('%L: %L as %L,\n', valueDesc.name, valueDesc.number.toString(), fullName);
-    }
-
-    if (options.outputJsonMethods) {
-      code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
-      code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
-    }
-
-    const enumTypes = [...enumDesc.value.map((v) => v.number.toString()), UNRECOGNIZED_ENUM_VALUE.toString()];
-    code = code.add('export type %L = %L;', fullName, enumTypes.join(' | '));
-    code = code.add('\n');
-
-    // code = code.add('export type %L = %L;', fullName, enumDesc.value.map(v => v.number.toString()).join(' | '));
-    // code = code.add('\n');
+  if (options.outputJsonMethods) {
+    code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
+    code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
   }
+
+  code = code.endControlFlow();
+  code = code.add('\n');
+
+  const enumTypes = [...enumDesc.value.map((v) => v.number.toString()), UNRECOGNIZED_ENUM_VALUE.toString()];
+  code = code.add('export type %L = %L;', fullName, enumTypes.join(' | '));
+  code = code.add('\n');
+
   return code;
 }
 
@@ -556,7 +518,6 @@ function generateOneofProperty(
   return prop;
 }
 
-function generateBaseInstance(typeMap: TypeMap, fullName: string, messageDesc: DescriptorProto, options: Options) {
 // Create the interface with properties
 function generateClassDeclaration(
   typeMap: TypeMap,
@@ -566,7 +527,7 @@ function generateClassDeclaration(
   options: Options
 ) {
   let message = ClassSpec.create(fullName).addModifiers(Modifier.EXPORT);
-  maybeAddComment(sourceInfo, text => (message = message.addJavadoc(text)));
+  maybeAddComment(sourceInfo, (text) => (message = message.addJavadoc(text)));
 
   let index = 0;
   for (const fieldDesc of messageDesc.field) {
@@ -576,25 +537,24 @@ function generateClassDeclaration(
     );
 
     const info = sourceInfo.lookup(Fields.message.field, index++);
-    maybeAddComment(info, text => (prop = prop.addJavadoc(text)));
+    maybeAddComment(info, (text) => (prop = prop.addJavadoc(text)));
 
     message = message.addProperty(prop);
   }
   return message;
 }
 
-function generateBaseInstance(fullName: string, messageDesc: DescriptorProto, options: Options) {
+function generateBaseInstance(typeMap: TypeMap, fullName: string, messageDesc: DescriptorProto, options: Options) {
   // Create a 'base' instance with default values for decode to use as a prototype
   let baseMessage = PropertySpec.create('base' + fullName, TypeNames.anyType('object')).addModifiers(Modifier.CONST);
   let initialValue = CodeBlock.empty().beginHash();
   asSequence(messageDesc.field)
     .filterNot(isWithinOneOf)
     .forEach((field) => {
-      let val = defaultValue(typeMap, field, options);
-      if (val === 'undefined') {
-        return;
-      }
-      initialValue = initialValue.addHashEntry(maybeSnakeToCamel(field.name, options), val);
+      initialValue = initialValue.addHashEntry(
+        maybeSnakeToCamel(field.name, options),
+        defaultValue(typeMap, field, options)
+      );
     });
   return baseMessage.initializerBlock(initialValue.endHash());
 }
@@ -900,9 +860,6 @@ function generateFromJson(
     // get a generic 'reader.doSomething' bit that is specific to the basic type
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
-        if (options.useEnumNames) {
-          return CodeBlock.of('%L', from);
-        }
         return CodeBlock.of('%T.fromJSON(%L)', basicTypeName(typeMap, field, options), from);
       } else if (isPrimitive(field)) {
         // Convert primitives using the String(value)/Number(value)/bytesFromBase64(value)
@@ -1015,9 +972,6 @@ function generateToJson(
 
     const readSnippet = (from: string): CodeBlock => {
       if (isEnum(field)) {
-        if (options.useEnumNames) {
-          return CodeBlock.of('%L', from);
-        }
         return CodeBlock.of('%T.toJSON(%L)', basicTypeName(typeMap, field, options), from);
       } else if (isTimestamp(field)) {
         return CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);
@@ -1217,11 +1171,11 @@ function generateService(
     let requestFn = FunctionSpec.create(methodDesc.name);
     const info = sourceInfo.lookup(Fields.service.method, index);
     maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-    
+
     requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
-    
+
     if (options.useContext) {
-      requestFn = requestFn.addParameter('ctx?', TypeNames.typeVariable('Context'));
+      requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
     }
     // Use metadata as last argument for interface only configuration
     if (options.addGrpcMetadata) {
@@ -1244,6 +1198,58 @@ function generateService(
         let batchFn = FunctionSpec.create(name);
         if (options.useContext) {
           batchFn = batchFn.addParameter('ctx', TypeNames.typeVariable('Context'));
+        }
+        batchFn = batchFn.addParameter(singular(batchMethod.inputFieldName), batchMethod.inputType);
+        batchFn = batchFn.returns(TypeNames.PROMISE.param(batchMethod.outputType));
+        service = service.addFunction(batchFn);
+      }
+    }
+  });
+  return service;
+}
+
+function generateServiceClient(
+  typeMap: TypeMap,
+  fileDesc: FileDescriptorProto,
+  sourceInfo: SourceInfo,
+  serviceDesc: ServiceDescriptorProto,
+  options: Options
+): InterfaceSpec {
+  let service = InterfaceSpec.create(serviceDesc.name + 'Client').addModifiers(Modifier.EXPORT);
+  if (options.useContext) {
+    service = service.addTypeVariable(contextTypeVar);
+  }
+  maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
+
+  serviceDesc.method.forEach((methodDesc, index) => {
+    if (options.lowerCaseServiceMethods) {
+      methodDesc.name = camelCase(methodDesc.name);
+    }
+
+    let requestFn = FunctionSpec.create(methodDesc.name);
+    const info = sourceInfo.lookup(Fields.service.method, index);
+    maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
+
+    requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
+
+    if (options.useContext) {
+      requestFn = requestFn.addParameter('ctx?', TypeNames.typeVariable('Context'));
+    }
+    // Use metadata as last argument for interface only configuration
+    if (options.addGrpcMetadata) {
+      requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
+    }
+
+    requestFn = requestFn.returns(responseObservable(typeMap, methodDesc, options));
+    service = service.addFunction(requestFn);
+
+    if (options.useContext) {
+      const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
+      if (batchMethod) {
+        const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
+        let batchFn = FunctionSpec.create(name);
+        if (options.useContext) {
+          batchFn = batchFn.addParameter('ctx?', TypeNames.typeVariable('Context'));
         }
         batchFn = batchFn.addParameter(singular(batchMethod.inputFieldName), batchMethod.inputType);
         batchFn = batchFn.returns(TypeNames.PROMISE.param(batchMethod.outputType));
@@ -1682,7 +1688,7 @@ function generateDataLoadersType(): InterfaceSpec {
     .addParameter('identifier', TypeNames.STRING)
     .addParameter('constructorFn', TypeNames.lambda2([], TypeNames.typeVariable('T')))
     .returns(TypeNames.typeVariable('T'));
-  return InterfaceSpec.create('DataLoaders').addModifiers(Modifier.EXPORT).addFunction(fn);
+  return InterfaceSpec.create('DataLoaders').addFunction(fn);
 }
 
 function requestType(typeMap: TypeMap, methodDesc: MethodDescriptorProto, options: Options): TypeName {

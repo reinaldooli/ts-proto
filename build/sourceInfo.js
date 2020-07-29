@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Fields = void 0;
 /**
  * The field values here represent the proto field IDs associated with the types
  * (file,message,enum,service).
@@ -14,19 +15,20 @@ exports.Fields = {
         message_type: 4,
         enum_type: 5,
         service: 6,
-        extension: 7
+        extension: 7,
     },
     message: {
         field: 2,
         nested_type: 3,
-        enum_type: 4
+        enum_type: 4,
+        oneof_decl: 8,
     },
     enum: {
-        value: 2
+        value: 2,
     },
     service: {
-        method: 2
-    }
+        method: 2,
+    },
 };
 /** An empty SourceDescription for when one is not available. */
 class EmptyDescription {
@@ -60,7 +62,7 @@ class SourceInfo {
     static fromDescriptor(file) {
         let map = {};
         if (file.sourceCodeInfo && file.sourceCodeInfo.location) {
-            file.sourceCodeInfo.location.forEach(loc => {
+            file.sourceCodeInfo.location.forEach((loc) => {
                 map[loc.path.join('.')] = loc;
             });
         }
@@ -94,8 +96,8 @@ class SourceInfo {
         const prefix = `${type}.${index}.`;
         const map = {};
         Object.keys(this.sourceCode)
-            .filter(key => key.startsWith(prefix))
-            .forEach(key => {
+            .filter((key) => key.startsWith(prefix))
+            .forEach((key) => {
             map[key.substr(prefix.length)] = this.sourceCode[key];
         });
         return new SourceInfo(map, this.lookup(type, index));

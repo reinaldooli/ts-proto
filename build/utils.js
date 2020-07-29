@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.toCamelCaseString = exports.maybeAddComment = exports.optionsFromParameter = exports.defaultOptions = exports.upperFirst = exports.lowerFirst = exports.singular = exports.fail = exports.readToBuffer = void 0;
 const main_1 = require("./main");
 function readToBuffer(stream) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         const ret = [];
         let len = 0;
         stream.on('readable', () => {
@@ -34,18 +35,27 @@ function upperFirst(name) {
     return name.substring(0, 1).toUpperCase() + name.substring(1);
 }
 exports.upperFirst = upperFirst;
-function optionsFromParameter(parameter) {
-    const options = {
+function defaultOptions() {
+    return {
         useContext: false,
         snakeToCamel: true,
         forceLong: main_1.LongOption.NUMBER,
+        useOptionals: false,
+        oneof: main_1.OneofOption.PROPERTIES,
+        lowerCaseServiceMethods: false,
         outputEncodeMethods: true,
         outputJsonMethods: true,
         outputClientImpl: true,
-        useEnumNames: false,
-        outputNestJs: false,
+        returnObservable: false,
+        addGrpcMetadata: false,
+        nestJs: false,
+        env: main_1.EnvOption.BOTH,
         asClass: false,
     };
+}
+exports.defaultOptions = defaultOptions;
+function optionsFromParameter(parameter) {
+    const options = defaultOptions();
     if (parameter) {
         if (parameter.includes('context=true')) {
             options.useContext = true;
@@ -59,6 +69,18 @@ function optionsFromParameter(parameter) {
         if (parameter.includes('forceLong=string')) {
             options.forceLong = main_1.LongOption.STRING;
         }
+        if (parameter.includes('useOptionals=true')) {
+            options.useOptionals = true;
+        }
+        if (parameter.includes('oneof=properties')) {
+            options.oneof = main_1.OneofOption.PROPERTIES;
+        }
+        if (parameter.includes('oneof=unions')) {
+            options.oneof = main_1.OneofOption.UNIONS;
+        }
+        if (parameter.includes('lowerCaseServiceMethods=true')) {
+            options.lowerCaseServiceMethods = true;
+        }
         if (parameter.includes('outputEncodeMethods=false')) {
             options.outputEncodeMethods = false;
         }
@@ -68,11 +90,24 @@ function optionsFromParameter(parameter) {
         if (parameter.includes('outputClientImpl=false')) {
             options.outputClientImpl = false;
         }
-        if (parameter.includes('outputNestJs=true')) {
-            options.outputNestJs = true;
+        if (parameter.includes('nestJs=true')) {
+            options.nestJs = true;
+            options.lowerCaseServiceMethods = true;
+            options.outputEncodeMethods = false;
+            options.outputJsonMethods = false;
+            options.outputClientImpl = false;
+            if (parameter.includes('addGrpcMetadata=true')) {
+                options.addGrpcMetadata = true;
+            }
+            if (parameter.includes('returnObservable=true')) {
+                options.returnObservable = true;
+            }
         }
-        if (parameter.includes('useEnumNames=true')) {
-            options.useEnumNames = true;
+        if (parameter.includes('env=node')) {
+            options.env = main_1.EnvOption.NODE;
+        }
+        if (parameter.includes('env=browser')) {
+            options.env = main_1.EnvOption.BROWSER;
         }
         if (parameter.includes('asClass=true')) {
             options.asClass = true;
@@ -100,7 +135,7 @@ exports.maybeAddComment = maybeAddComment;
 // util function to convert the input to string type
 function convertToString(input) {
     if (input) {
-        if (typeof input === "string") {
+        if (typeof input === 'string') {
             return input;
         }
         return String(input);
@@ -115,7 +150,7 @@ function toWords(input) {
 }
 // convert the input array to camel case
 function toCamelCase(inputArray) {
-    let result = "";
+    let result = '';
     for (let i = 0, len = inputArray.length; i < len; i++) {
         let currentStr = inputArray[i];
         let tempStr = currentStr.toLowerCase();
