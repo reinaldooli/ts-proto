@@ -25,14 +25,15 @@ describe('simple', () => {
       state: StateEnum.ON,
       grandChildren: [
         { name: 'grand1', type: Child_Type.UNKNOWN },
-        { name: 'grand2', type: Child_Type.UNKNOWN }
+        { name: 'grand2', type: Child_Type.UNKNOWN },
       ],
       coins: [2, 4, 6],
       snacks: ['a', 'b'],
       oldStates: [StateEnum.ON, StateEnum.OFF],
       createdAt: jan1,
       thing: undefined,
-      blobs: []
+      blobs: [],
+      birthday: undefined,
     };
     expect(simple.name).toEqual('asdf');
   });
@@ -43,12 +44,15 @@ describe('simple', () => {
       age: 1,
       child: PbChild.fromObject({ name: 'foo', type: Child_Type.UNKNOWN }),
       state: PbState.ON,
-      grandChildren: [PbChild.fromObject({ name: 'grand1', type: Child_Type.UNKNOWN }), PbChild.fromObject({ name: 'grand2', type: Child_Type.UNKNOWN })],
+      grandChildren: [
+        PbChild.fromObject({ name: 'grand1', type: Child_Type.UNKNOWN }),
+        PbChild.fromObject({ name: 'grand2', type: Child_Type.UNKNOWN }),
+      ],
       coins: [2, 4, 6],
       snacks: ['a', 'b'],
       thing: undefined,
       oldStates: [PbState.ON, PbState.OFF],
-      blobs: []
+      blobs: [],
     };
     const s2 = Simple.decode(Reader.create(PbSimple.encode(PbSimple.fromObject(s1)).finish()));
     expect(s2).toEqual(s1);
@@ -62,21 +66,22 @@ describe('simple', () => {
       state: StateEnum.ON,
       grandChildren: [
         { name: 'grand1', type: Child_Type.UNKNOWN },
-        { name: 'grand2', type: Child_Type.UNKNOWN }
+        { name: 'grand2', type: Child_Type.UNKNOWN },
       ],
       coins: [2, 4, 6],
       snacks: ['a', 'b'],
       oldStates: [StateEnum.ON, StateEnum.OFF],
       createdAt: jan1,
       thing: undefined,
-      blobs: []
+      blobs: [],
+      birthday: undefined,
     };
     const s2 = PbSimple.toObject(PbSimple.decode(Simple.encode(s1).finish()));
 
     delete s1.blobs;
     expect(s2).toEqual({
       ...s1,
-      createdAt: new PbTimestamp({ nanos: 0, seconds: new Long(0) as any })
+      createdAt: new PbTimestamp({ nanos: 0, seconds: new Long(0) as any }),
     });
   });
 
@@ -97,9 +102,9 @@ describe('simple', () => {
       name: 'asdf',
       message: {
         name: 'asdf',
-        deep: { name: 'asdf' }
+        deep: { name: 'asdf' },
       },
-      state: Nested_InnerEnum.GOOD
+      state: Nested_InnerEnum.GOOD,
     };
     const s2 = PbNested.toObject(PbNested.decode(Nested.encode(s1).finish()));
     expect(s2).toEqual(s1);
@@ -110,9 +115,9 @@ describe('simple', () => {
       name: 'asdf',
       message: PbNested_InnerMessage.fromObject({
         name: 'asdf',
-        deep: PbNested_DeepMessage.fromObject({ name: 'asdf' })
+        deep: PbNested_DeepMessage.fromObject({ name: 'asdf' }),
       }),
-      state: PbNested_InnerEnum.GOOD
+      state: PbNested_InnerEnum.GOOD,
     };
     const s2 = Nested.decode(Reader.create(PbNested.encode(PbNested.fromObject(s1)).finish()));
     expect(s2).toEqual(s1);
@@ -138,7 +143,7 @@ describe('simple', () => {
 
   it('observes how pbjs handles collections of default values', () => {
     const s1 = PbSimple.create({
-      coins: [0, 1, 2]
+      coins: [0, 1, 2],
     });
     const s2 = PbSimple.decode(PbSimple.encode(s1).finish());
     expect(s2.coins).toEqual([0, 1, 2]);
@@ -156,13 +161,14 @@ describe('simple', () => {
       oldStates: [StateEnum.UNKNOWN, StateEnum.OFF],
       createdAt: jan1,
       thing: undefined,
-      blobs: []
+      blobs: [],
+      birthday: undefined,
     };
     const s2 = PbSimple.toObject(PbSimple.decode(Simple.encode(s1).finish()));
     delete s1.blobs;
     expect(s2).toEqual({
       ...s1,
-      createdAt: new PbTimestamp({ nanos: 0, seconds: new Long(0) as any })
+      createdAt: new PbTimestamp({ nanos: 0, seconds: new Long(0) as any }),
     });
   });
 
@@ -170,12 +176,16 @@ describe('simple', () => {
     const s1: SimpleWithMap = {
       entitiesById: {
         1: { id: 1 },
-        2: { id: 2 }
+        2: { id: 2 },
       },
       nameLookup: { foo: 'bar' },
-      intLookup: { 1: 2, 2: 0 }
+      intLookup: { 1: 2, 2: 0 },
+      mapOfTimestamps: {},
+      mapOfBytes: {},
     };
     const s2 = PbSimpleWithMap.toObject(PbSimpleWithMap.decode(SimpleWithMap.encode(s1).finish()));
+    delete s1.mapOfTimestamps;
+    delete s1.mapOfBytes;
     expect(s2).toEqual(s1);
   });
 
@@ -183,12 +193,17 @@ describe('simple', () => {
     const s1 = PbSimpleWithMap.fromObject({
       entitiesById: {
         1: { id: 1 },
-        2: { id: 2 }
+        2: { id: 2 },
       },
-      intLookup: { 1: 2, 2: 0 }
+      intLookup: { 1: 2, 2: 0 },
     });
     const s2 = SimpleWithMap.decode(new Reader(PbSimpleWithMap.encode(s1).finish()));
-    expect(s2).toEqual(s1);
+    expect(s2).toEqual({
+      ...s1,
+      nameLookup: {},
+      mapOfTimestamps: {},
+      mapOfBytes: {},
+    });
   });
 
   it('has fromPartial', () => {
@@ -196,6 +211,7 @@ describe('simple', () => {
     expect(s1).toMatchInlineSnapshot(`
       Object {
         "age": 0,
+        "birthday": undefined,
         "blobs": Array [],
         "child": undefined,
         "coins": Array [],
@@ -219,9 +235,17 @@ describe('simple', () => {
           "1": 2,
           "2": 0,
         },
+        "mapOfBytes": Object {},
+        "mapOfTimestamps": Object {},
         "nameLookup": Object {},
       }
     `);
+  });
+
+  it('can fromPartial on maps with timestamps', () => {
+    const d1 = new Date();
+    const s1 = SimpleWithMap.fromPartial({ mapOfTimestamps: { a: d1 } });
+    expect(s1.mapOfTimestamps['a']).toEqual(d1);
   });
 
   it('can fromPartial with oneofs of primitives', () => {

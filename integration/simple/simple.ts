@@ -2,6 +2,7 @@
 //  comment in the output source file.
 //
 import { ImportedThing } from './import_dir/thing';
+import { DateMessage } from './google/type/date';
 import { Reader, Writer } from 'protobufjs/minimal';
 import { Timestamp } from './google/protobuf/timestamp';
 import * as Long from 'long';
@@ -33,6 +34,7 @@ export interface Simple {
    */
   thing: ImportedThing | undefined;
   blobs: Uint8Array[];
+  birthday: DateMessage | undefined;
 }
 
 export interface Child {
@@ -79,6 +81,8 @@ export interface SimpleWithMap {
   entitiesById: { [key: number]: Entity };
   nameLookup: { [key: string]: string };
   intLookup: { [key: number]: number };
+  mapOfTimestamps: { [key: string]: Date };
+  mapOfBytes: { [key: string]: Uint8Array };
 }
 
 export interface SimpleWithMap_EntitiesByIdEntry {
@@ -94,6 +98,16 @@ export interface SimpleWithMap_NameLookupEntry {
 export interface SimpleWithMap_IntLookupEntry {
   key: number;
   value: number;
+}
+
+export interface SimpleWithMap_MapOfTimestampsEntry {
+  key: string;
+  value: Date | undefined;
+}
+
+export interface SimpleWithMap_MapOfBytesEntry {
+  key: string;
+  value: Uint8Array;
 }
 
 export interface SimpleWithSnakeCaseMap {
@@ -183,6 +197,14 @@ const baseSimpleWithMap_NameLookupEntry: object = {
 const baseSimpleWithMap_IntLookupEntry: object = {
   key: 0,
   value: 0,
+};
+
+const baseSimpleWithMap_MapOfTimestampsEntry: object = {
+  key: "",
+};
+
+const baseSimpleWithMap_MapOfBytesEntry: object = {
+  key: "",
 };
 
 const baseSimpleWithSnakeCaseMap: object = {
@@ -275,119 +297,119 @@ function longToNumber(long: Long) {
   return long.toNumber();
 }
 
-export const StateEnum = {
-  UNKNOWN: 0 as const,
-  ON: 2 as const,
-  OFF: 3 as const,
-  UNRECOGNIZED: -1 as const,
-  fromJSON(object: any): StateEnum {
-    switch (object) {
-      case 0:
-      case "UNKNOWN":
-        return StateEnum.UNKNOWN;
-      case 2:
-      case "ON":
-        return StateEnum.ON;
-      case 3:
-      case "OFF":
-        return StateEnum.OFF;
-      case -1:
-      case "UNRECOGNIZED":
-      default:
-        return StateEnum.UNRECOGNIZED;
-    }
-  },
-  toJSON(object: StateEnum): string {
-    switch (object) {
-      case StateEnum.UNKNOWN:
-        return "UNKNOWN";
-      case StateEnum.ON:
-        return "ON";
-      case StateEnum.OFF:
-        return "OFF";
-      default:
-        return "UNKNOWN";
-    }
-  },
+export enum StateEnum {
+  UNKNOWN = 0,
+  ON = 2,
+  OFF = 3,
+  UNRECOGNIZED = -1,
 }
 
-export type StateEnum = 0 | 2 | 3 | -1;
-
-export const Child_Type = {
-  UNKNOWN: 0 as const,
-  GOOD: 1 as const,
-  BAD: 2 as const,
-  UNRECOGNIZED: -1 as const,
-  fromJSON(object: any): Child_Type {
-    switch (object) {
-      case 0:
-      case "UNKNOWN":
-        return Child_Type.UNKNOWN;
-      case 1:
-      case "GOOD":
-        return Child_Type.GOOD;
-      case 2:
-      case "BAD":
-        return Child_Type.BAD;
-      case -1:
-      case "UNRECOGNIZED":
-      default:
-        return Child_Type.UNRECOGNIZED;
-    }
-  },
-  toJSON(object: Child_Type): string {
-    switch (object) {
-      case Child_Type.UNKNOWN:
-        return "UNKNOWN";
-      case Child_Type.GOOD:
-        return "GOOD";
-      case Child_Type.BAD:
-        return "BAD";
-      default:
-        return "UNKNOWN";
-    }
-  },
+export function stateEnumFromJSON(object: any): StateEnum {
+  switch (object) {
+    case 0:
+    case "UNKNOWN":
+      return StateEnum.UNKNOWN;
+    case 2:
+    case "ON":
+      return StateEnum.ON;
+    case 3:
+    case "OFF":
+      return StateEnum.OFF;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return StateEnum.UNRECOGNIZED;
+  }
 }
 
-export type Child_Type = 0 | 1 | 2 | -1;
-
-export const Nested_InnerEnum = {
-  UNKNOWN_INNER: 0 as const,
-  GOOD: 100 as const,
-  BAD: 1000 as const,
-  UNRECOGNIZED: -1 as const,
-  fromJSON(object: any): Nested_InnerEnum {
-    switch (object) {
-      case 0:
-      case "UNKNOWN_INNER":
-        return Nested_InnerEnum.UNKNOWN_INNER;
-      case 100:
-      case "GOOD":
-        return Nested_InnerEnum.GOOD;
-      case 1000:
-      case "BAD":
-        return Nested_InnerEnum.BAD;
-      case -1:
-      case "UNRECOGNIZED":
-      default:
-        return Nested_InnerEnum.UNRECOGNIZED;
-    }
-  },
-  toJSON(object: Nested_InnerEnum): string {
-    switch (object) {
-      case Nested_InnerEnum.UNKNOWN_INNER:
-        return "UNKNOWN_INNER";
-      case Nested_InnerEnum.GOOD:
-        return "GOOD";
-      case Nested_InnerEnum.BAD:
-        return "BAD";
-      default:
-        return "UNKNOWN";
-    }
-  },
+export function stateEnumToJSON(object: StateEnum): string {
+  switch (object) {
+    case StateEnum.UNKNOWN:
+      return "UNKNOWN";
+    case StateEnum.ON:
+      return "ON";
+    case StateEnum.OFF:
+      return "OFF";
+    default:
+      return "UNKNOWN";
+  }
 }
 
-export type Nested_InnerEnum = 0 | 100 | 1000 | -1;
+export enum Child_Type {
+  UNKNOWN = 0,
+  GOOD = 1,
+  BAD = 2,
+  UNRECOGNIZED = -1,
+}
+
+export function child_TypeFromJSON(object: any): Child_Type {
+  switch (object) {
+    case 0:
+    case "UNKNOWN":
+      return Child_Type.UNKNOWN;
+    case 1:
+    case "GOOD":
+      return Child_Type.GOOD;
+    case 2:
+    case "BAD":
+      return Child_Type.BAD;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Child_Type.UNRECOGNIZED;
+  }
+}
+
+export function child_TypeToJSON(object: Child_Type): string {
+  switch (object) {
+    case Child_Type.UNKNOWN:
+      return "UNKNOWN";
+    case Child_Type.GOOD:
+      return "GOOD";
+    case Child_Type.BAD:
+      return "BAD";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+export enum Nested_InnerEnum {
+  UNKNOWN_INNER = 0,
+  GOOD = 100,
+  BAD = 1000,
+  UNRECOGNIZED = -1,
+}
+
+export function nested_InnerEnumFromJSON(object: any): Nested_InnerEnum {
+  switch (object) {
+    case 0:
+    case "UNKNOWN_INNER":
+      return Nested_InnerEnum.UNKNOWN_INNER;
+    case 100:
+    case "GOOD":
+      return Nested_InnerEnum.GOOD;
+    case 1000:
+    case "BAD":
+      return Nested_InnerEnum.BAD;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Nested_InnerEnum.UNRECOGNIZED;
+  }
+}
+
+export function nested_InnerEnumToJSON(object: Nested_InnerEnum): string {
+  switch (object) {
+    case Nested_InnerEnum.UNKNOWN_INNER:
+      return "UNKNOWN_INNER";
+    case Nested_InnerEnum.GOOD:
+      return "GOOD";
+    case Nested_InnerEnum.BAD:
+      return "BAD";
+    default:
+      return "UNKNOWN";
+  }
+}
 
 export const Simple = {
   encode(message: Simple, writer: Writer = Writer.create()): Writer {
@@ -421,6 +443,9 @@ export const Simple = {
     }
     for (const v of message.blobs) {
       writer.uint32(90).bytes(v!);
+    }
+    if (message.birthday !== undefined && message.birthday !== undefined) {
+      DateMessage.encode(message.birthday, writer.uint32(98).fork()).ldelim();
     }
     return writer;
   },
@@ -483,6 +508,9 @@ export const Simple = {
         case 11:
           message.blobs.push(reader.bytes());
           break;
+        case 12:
+          message.birthday = DateMessage.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -518,7 +546,7 @@ export const Simple = {
       message.child = undefined;
     }
     if (object.state !== undefined && object.state !== null) {
-      message.state = StateEnum.fromJSON(object.state);
+      message.state = stateEnumFromJSON(object.state);
     } else {
       message.state = 0;
     }
@@ -539,7 +567,7 @@ export const Simple = {
     }
     if (object.oldStates !== undefined && object.oldStates !== null) {
       for (const e of object.oldStates) {
-        message.oldStates.push(StateEnum.fromJSON(e));
+        message.oldStates.push(stateEnumFromJSON(e));
       }
     }
     if (object.thing !== undefined && object.thing !== null) {
@@ -551,6 +579,11 @@ export const Simple = {
       for (const e of object.blobs) {
         message.blobs.push(bytesFromBase64(e));
       }
+    }
+    if (object.birthday !== undefined && object.birthday !== null) {
+      message.birthday = DateMessage.fromJSON(object.birthday);
+    } else {
+      message.birthday = undefined;
     }
     return message;
   },
@@ -616,6 +649,11 @@ export const Simple = {
         message.blobs.push(e);
       }
     }
+    if (object.birthday !== undefined && object.birthday !== null) {
+      message.birthday = DateMessage.fromPartial(object.birthday);
+    } else {
+      message.birthday = undefined;
+    }
     return message;
   },
   toJSON(message: Simple): unknown {
@@ -624,7 +662,7 @@ export const Simple = {
     obj.age = message.age || 0;
     obj.createdAt = message.createdAt !== undefined ? message.createdAt.toISOString() : null;
     obj.child = message.child ? Child.toJSON(message.child) : undefined;
-    obj.state = StateEnum.toJSON(message.state);
+    obj.state = stateEnumToJSON(message.state);
     if (message.grandChildren) {
       obj.grandChildren = message.grandChildren.map(e => e ? Child.toJSON(e) : undefined);
     } else {
@@ -641,7 +679,7 @@ export const Simple = {
       obj.snacks = [];
     }
     if (message.oldStates) {
-      obj.oldStates = message.oldStates.map(e => StateEnum.toJSON(e));
+      obj.oldStates = message.oldStates.map(e => stateEnumToJSON(e));
     } else {
       obj.oldStates = [];
     }
@@ -651,6 +689,7 @@ export const Simple = {
     } else {
       obj.blobs = [];
     }
+    obj.birthday = message.birthday ? DateMessage.toJSON(message.birthday) : undefined;
     return obj;
   },
 };
@@ -689,7 +728,7 @@ export const Child = {
       message.name = "";
     }
     if (object.type !== undefined && object.type !== null) {
-      message.type = Child_Type.fromJSON(object.type);
+      message.type = child_TypeFromJSON(object.type);
     } else {
       message.type = 0;
     }
@@ -712,7 +751,7 @@ export const Child = {
   toJSON(message: Child): unknown {
     const obj: any = {};
     obj.name = message.name || "";
-    obj.type = Child_Type.toJSON(message.type);
+    obj.type = child_TypeToJSON(message.type);
     return obj;
   },
 };
@@ -762,7 +801,7 @@ export const Nested = {
       message.message = undefined;
     }
     if (object.state !== undefined && object.state !== null) {
-      message.state = Nested_InnerEnum.fromJSON(object.state);
+      message.state = nested_InnerEnumFromJSON(object.state);
     } else {
       message.state = 0;
     }
@@ -791,7 +830,7 @@ export const Nested = {
     const obj: any = {};
     obj.name = message.name || "";
     obj.message = message.message ? Nested_InnerMessage.toJSON(message.message) : undefined;
-    obj.state = Nested_InnerEnum.toJSON(message.state);
+    obj.state = nested_InnerEnumToJSON(message.state);
     return obj;
   },
 };
@@ -1162,6 +1201,12 @@ export const SimpleWithMap = {
     Object.entries(message.intLookup).forEach(([key, value]) => {
       SimpleWithMap_IntLookupEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).ldelim();
     })
+    Object.entries(message.mapOfTimestamps).forEach(([key, value]) => {
+      SimpleWithMap_MapOfTimestampsEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).ldelim();
+    })
+    Object.entries(message.mapOfBytes).forEach(([key, value]) => {
+      SimpleWithMap_MapOfBytesEntry.encode({ key: key as any, value }, writer.uint32(42).fork()).ldelim();
+    })
     return writer;
   },
   decode(input: Uint8Array | Reader, length?: number): SimpleWithMap {
@@ -1171,6 +1216,8 @@ export const SimpleWithMap = {
     message.entitiesById = {};
     message.nameLookup = {};
     message.intLookup = {};
+    message.mapOfTimestamps = {};
+    message.mapOfBytes = {};
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1192,6 +1239,18 @@ export const SimpleWithMap = {
             message.intLookup[entry3.key] = entry3.value;
           }
           break;
+        case 4:
+          const entry4 = SimpleWithMap_MapOfTimestampsEntry.decode(reader, reader.uint32());
+          if (entry4.value !== undefined) {
+            message.mapOfTimestamps[entry4.key] = entry4.value;
+          }
+          break;
+        case 5:
+          const entry5 = SimpleWithMap_MapOfBytesEntry.decode(reader, reader.uint32());
+          if (entry5.value !== undefined) {
+            message.mapOfBytes[entry5.key] = entry5.value;
+          }
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1204,6 +1263,8 @@ export const SimpleWithMap = {
     message.entitiesById = {};
     message.nameLookup = {};
     message.intLookup = {};
+    message.mapOfTimestamps = {};
+    message.mapOfBytes = {};
     if (object.entitiesById !== undefined && object.entitiesById !== null) {
       Object.entries(object.entitiesById).forEach(([key, value]) => {
         message.entitiesById[Number(key)] = Entity.fromJSON(value);
@@ -1219,6 +1280,16 @@ export const SimpleWithMap = {
         message.intLookup[Number(key)] = Number(value);
       })
     }
+    if (object.mapOfTimestamps !== undefined && object.mapOfTimestamps !== null) {
+      Object.entries(object.mapOfTimestamps).forEach(([key, value]) => {
+        message.mapOfTimestamps[key] = fromJsonTimestamp(value);
+      })
+    }
+    if (object.mapOfBytes !== undefined && object.mapOfBytes !== null) {
+      Object.entries(object.mapOfBytes).forEach(([key, value]) => {
+        message.mapOfBytes[key] = bytesFromBase64(value as string);
+      })
+    }
     return message;
   },
   fromPartial(object: DeepPartial<SimpleWithMap>): SimpleWithMap {
@@ -1226,6 +1297,8 @@ export const SimpleWithMap = {
     message.entitiesById = {};
     message.nameLookup = {};
     message.intLookup = {};
+    message.mapOfTimestamps = {};
+    message.mapOfBytes = {};
     if (object.entitiesById !== undefined && object.entitiesById !== null) {
       Object.entries(object.entitiesById).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -1247,13 +1320,54 @@ export const SimpleWithMap = {
         }
       })
     }
+    if (object.mapOfTimestamps !== undefined && object.mapOfTimestamps !== null) {
+      Object.entries(object.mapOfTimestamps).forEach(([key, value]) => {
+        if (value !== undefined) {
+          message.mapOfTimestamps[key] = value;
+        }
+      })
+    }
+    if (object.mapOfBytes !== undefined && object.mapOfBytes !== null) {
+      Object.entries(object.mapOfBytes).forEach(([key, value]) => {
+        if (value !== undefined) {
+          message.mapOfBytes[key] = value;
+        }
+      })
+    }
     return message;
   },
   toJSON(message: SimpleWithMap): unknown {
     const obj: any = {};
-    obj.entitiesById = message.entitiesById || undefined;
-    obj.nameLookup = message.nameLookup || undefined;
-    obj.intLookup = message.intLookup || undefined;
+    obj.entitiesById = {};
+    if (message.entitiesById) {
+      Object.entries(message.entitiesById).forEach(([k, v]) => {
+        obj.entitiesById[k] = v;
+      })
+    }
+    obj.nameLookup = {};
+    if (message.nameLookup) {
+      Object.entries(message.nameLookup).forEach(([k, v]) => {
+        obj.nameLookup[k] = v;
+      })
+    }
+    obj.intLookup = {};
+    if (message.intLookup) {
+      Object.entries(message.intLookup).forEach(([k, v]) => {
+        obj.intLookup[k] = v;
+      })
+    }
+    obj.mapOfTimestamps = {};
+    if (message.mapOfTimestamps) {
+      Object.entries(message.mapOfTimestamps).forEach(([k, v]) => {
+        obj.mapOfTimestamps[k] = v.toISOString();
+      })
+    }
+    obj.mapOfBytes = {};
+    if (message.mapOfBytes) {
+      Object.entries(message.mapOfBytes).forEach(([k, v]) => {
+        obj.mapOfBytes[k] = base64FromBytes(v);
+      })
+    }
     return obj;
   },
 };
@@ -1446,6 +1560,128 @@ export const SimpleWithMap_IntLookupEntry = {
   },
 };
 
+export const SimpleWithMap_MapOfTimestampsEntry = {
+  encode(message: SimpleWithMap_MapOfTimestampsEntry, writer: Writer = Writer.create()): Writer {
+    writer.uint32(10).string(message.key);
+    if (message.value !== undefined && message.value !== undefined) {
+      Timestamp.encode(toTimestamp(message.value), writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input: Uint8Array | Reader, length?: number): SimpleWithMap_MapOfTimestampsEntry {
+    const reader = input instanceof Uint8Array ? new Reader(input) : input;
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = { ...baseSimpleWithMap_MapOfTimestampsEntry } as SimpleWithMap_MapOfTimestampsEntry;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.key = reader.string();
+          break;
+        case 2:
+          message.value = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromJSON(object: any): SimpleWithMap_MapOfTimestampsEntry {
+    const message = { ...baseSimpleWithMap_MapOfTimestampsEntry } as SimpleWithMap_MapOfTimestampsEntry;
+    if (object.key !== undefined && object.key !== null) {
+      message.key = String(object.key);
+    } else {
+      message.key = "";
+    }
+    if (object.value !== undefined && object.value !== null) {
+      message.value = fromJsonTimestamp(object.value);
+    } else {
+      message.value = undefined;
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<SimpleWithMap_MapOfTimestampsEntry>): SimpleWithMap_MapOfTimestampsEntry {
+    const message = { ...baseSimpleWithMap_MapOfTimestampsEntry } as SimpleWithMap_MapOfTimestampsEntry;
+    if (object.key !== undefined && object.key !== null) {
+      message.key = object.key;
+    } else {
+      message.key = "";
+    }
+    if (object.value !== undefined && object.value !== null) {
+      message.value = object.value;
+    } else {
+      message.value = undefined;
+    }
+    return message;
+  },
+  toJSON(message: SimpleWithMap_MapOfTimestampsEntry): unknown {
+    const obj: any = {};
+    obj.key = message.key || "";
+    obj.value = message.value !== undefined ? message.value.toISOString() : null;
+    return obj;
+  },
+};
+
+export const SimpleWithMap_MapOfBytesEntry = {
+  encode(message: SimpleWithMap_MapOfBytesEntry, writer: Writer = Writer.create()): Writer {
+    writer.uint32(10).string(message.key);
+    writer.uint32(18).bytes(message.value);
+    return writer;
+  },
+  decode(input: Uint8Array | Reader, length?: number): SimpleWithMap_MapOfBytesEntry {
+    const reader = input instanceof Uint8Array ? new Reader(input) : input;
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = { ...baseSimpleWithMap_MapOfBytesEntry } as SimpleWithMap_MapOfBytesEntry;
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.key = reader.string();
+          break;
+        case 2:
+          message.value = reader.bytes();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromJSON(object: any): SimpleWithMap_MapOfBytesEntry {
+    const message = { ...baseSimpleWithMap_MapOfBytesEntry } as SimpleWithMap_MapOfBytesEntry;
+    if (object.key !== undefined && object.key !== null) {
+      message.key = String(object.key);
+    } else {
+      message.key = "";
+    }
+    if (object.value !== undefined && object.value !== null) {
+      message.value = bytesFromBase64(object.value);
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<SimpleWithMap_MapOfBytesEntry>): SimpleWithMap_MapOfBytesEntry {
+    const message = { ...baseSimpleWithMap_MapOfBytesEntry } as SimpleWithMap_MapOfBytesEntry;
+    if (object.key !== undefined && object.key !== null) {
+      message.key = object.key;
+    } else {
+      message.key = "";
+    }
+    if (object.value !== undefined && object.value !== null) {
+      message.value = object.value;
+    }
+    return message;
+  },
+  toJSON(message: SimpleWithMap_MapOfBytesEntry): unknown {
+    const obj: any = {};
+    obj.key = message.key || "";
+    obj.value = message.value !== undefined ? base64FromBytes(message.value) : undefined;
+    return obj;
+  },
+};
+
 export const SimpleWithSnakeCaseMap = {
   encode(message: SimpleWithSnakeCaseMap, writer: Writer = Writer.create()): Writer {
     Object.entries(message.entitiesById).forEach(([key, value]) => {
@@ -1498,7 +1734,12 @@ export const SimpleWithSnakeCaseMap = {
   },
   toJSON(message: SimpleWithSnakeCaseMap): unknown {
     const obj: any = {};
-    obj.entitiesById = message.entitiesById || undefined;
+    obj.entitiesById = {};
+    if (message.entitiesById) {
+      Object.entries(message.entitiesById).forEach(([k, v]) => {
+        obj.entitiesById[k] = v;
+      })
+    }
     return obj;
   },
 };

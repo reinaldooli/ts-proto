@@ -5,6 +5,7 @@ import PbChild = pbjs.Child;
 import PbSimple = pbjs.Simple;
 import PbState = pbjs.StateEnum;
 import Timestamp = google.protobuf.Timestamp;
+import { base64FromBytes } from './utils';
 
 describe('simple json', () => {
   it('can decode json', () => {
@@ -17,7 +18,7 @@ describe('simple json', () => {
       grandChildren: [PbChild.fromObject({ name: 'grand1', type: 0 }), PbChild.fromObject({ name: 'grand2', type: 0 })],
       coins: [2, 4, 6],
       snacks: ['a', 'b'],
-      oldStates: [PbState.ON, PbState.OFF]
+      oldStates: [PbState.ON, PbState.OFF],
     };
     // when it goes to json and back to us
     const s2 = Simple.fromJSON(PbSimple.fromObject(s1).toJSON());
@@ -27,7 +28,7 @@ describe('simple json', () => {
       ...s1,
       blobs: [],
       createdAt: undefined,
-      thing: undefined
+      thing: undefined,
     });
   });
 
@@ -70,7 +71,7 @@ describe('simple json', () => {
       age: 1,
       enabled: true,
       coins: [1, 2],
-      snacks: ['a', 'b']
+      snacks: ['a', 'b'],
     };
     const s2 = SimpleWithWrappers.fromJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
@@ -99,12 +100,13 @@ describe('simple json', () => {
       grandChildren: null,
       coins: null,
       snacks: null,
-      oldStates: null
+      oldStates: null,
     };
     const s2 = Simple.fromJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
       Object {
         "age": 0,
+        "birthday": undefined,
         "blobs": Array [],
         "child": undefined,
         "coins": Array [],
@@ -125,6 +127,7 @@ describe('simple json', () => {
     expect(s2).toMatchInlineSnapshot(`
       Object {
         "age": 0,
+        "birthday": undefined,
         "blobs": Array [],
         "child": undefined,
         "coins": Array [],
@@ -141,7 +144,7 @@ describe('simple json', () => {
 
   it('can decode dates that are canonical format', () => {
     const s1: ISimple = {
-      createdAt: Timestamp.create({ seconds: 1_000 })
+      createdAt: Timestamp.create({ seconds: 1_000 }),
     };
     const json = PbSimple.fromObject(s1).toJSON();
     const s2 = Simple.fromJSON(json);
@@ -163,7 +166,7 @@ describe('simple json', () => {
   it('decodes maps', () => {
     const s1 = {
       entitiesById: { '1': { id: '1' } },
-      intLookup: { 1: 0 }
+      intLookup: { 1: 0 },
     };
     expect(SimpleWithMap.fromJSON(s1)).toMatchInlineSnapshot(`
       Object {
@@ -175,11 +178,92 @@ describe('simple json', () => {
         "intLookup": Object {
           "1": 0,
         },
+        "mapOfBytes": Object {},
+        "mapOfTimestamps": Object {},
         "nameLookup": Object {},
       }
     `);
     // Ensure lookups by the id as a number work
     expect(SimpleWithMap.fromJSON(s1).entitiesById[1].id).toEqual(1);
+  });
+
+  it('decodes maps of timestamps', () => {
+    const json = {
+      mapOfTimestamps: {
+        a: '1970-01-01T00:16:40.000Z',
+        b: { seconds: 2000 },
+      },
+    };
+    const s1 = SimpleWithMap.fromJSON(json);
+    expect(s1).toMatchInlineSnapshot(`
+      Object {
+        "entitiesById": Object {},
+        "intLookup": Object {},
+        "mapOfBytes": Object {},
+        "mapOfTimestamps": Object {
+          "a": 1970-01-01T00:16:40.000Z,
+          "b": 1970-01-01T00:33:20.000Z,
+        },
+        "nameLookup": Object {},
+      }
+    `);
+    expect(s1.mapOfTimestamps['a']).toBeInstanceOf(Date);
+    expect(s1.mapOfTimestamps['b']).toBeInstanceOf(Date);
+  });
+
+  it('encodes maps of bytes', () => {
+    const s1: SimpleWithMap = {
+      entitiesById: {},
+      intLookup: {},
+      nameLookup: {},
+      mapOfTimestamps: {},
+      mapOfBytes: {
+        a: new Uint8Array([1, 2]),
+        b: new Uint8Array([1, 2, 3]),
+      },
+    };
+    const json = SimpleWithMap.toJSON(s1);
+    expect(json).toMatchInlineSnapshot(`
+      Object {
+        "entitiesById": Object {},
+        "intLookup": Object {},
+        "mapOfBytes": Object {
+          "a": "AQI=",
+          "b": "AQID",
+        },
+        "mapOfTimestamps": Object {},
+        "nameLookup": Object {},
+      }
+    `);
+  });
+
+  it('decodes maps of bytes', () => {
+    const json = {
+      mapOfBytes: {
+        a: base64FromBytes(new Uint8Array([1, 2])),
+        b: base64FromBytes(new Uint8Array([1, 2, 3])),
+      },
+    };
+    const s1 = SimpleWithMap.fromJSON(json);
+    expect(s1).toMatchInlineSnapshot(`
+      Object {
+        "entitiesById": Object {},
+        "intLookup": Object {},
+        "mapOfBytes": Object {
+          "a": Uint8Array [
+            1,
+            2,
+          ],
+          "b": Uint8Array [
+            1,
+            2,
+            3,
+          ],
+        },
+        "mapOfTimestamps": Object {},
+        "nameLookup": Object {},
+      }
+    `);
   });
 
   it('can encode json', () => {
@@ -190,18 +274,20 @@ describe('simple json', () => {
       state: StateEnum.ON,
       grandChildren: [
         { name: 'grand1', type: Child_Type.UNKNOWN },
-        { name: 'grand2', type: Child_Type.UNKNOWN }
+        { name: 'grand2', type: Child_Type.UNKNOWN },
       ],
       coins: [2, 4, 6],
       snacks: ['a', 'b'],
       oldStates: [StateEnum.ON, StateEnum.OFF],
       createdAt: new Date(1_000),
       thing: undefined,
-      blobs: []
+      blobs: [],
+      birthday: undefined,
     };
     expect(Simple.toJSON(s1)).toMatchInlineSnapshot(`
       Object {
         "age": 1,
+        "birthday": undefined,
         "blobs": Array [],
         "child": Object {
           "name": "foo",
@@ -242,6 +328,7 @@ describe('simple json', () => {
     expect(Simple.toJSON({} as Simple)).toMatchInlineSnapshot(`
       Object {
         "age": 0,
+        "birthday": undefined,
         "blobs": Array [],
         "child": undefined,
         "coins": Array [],
@@ -262,6 +349,7 @@ describe('simple json', () => {
     expect(s2).toMatchInlineSnapshot(`
       Object {
         "age": 0,
+        "birthday": undefined,
         "blobs": Array [],
         "child": Object {
           "name": "a",
@@ -285,7 +373,7 @@ describe('simple json', () => {
       age: 1,
       enabled: true,
       coins: [1, 2],
-      snacks: ['a', 'b']
+      snacks: ['a', 'b'],
     };
     const s2 = SimpleWithWrappers.toJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
@@ -311,7 +399,7 @@ describe('simple json', () => {
       age: undefined,
       enabled: undefined,
       coins: [], // should be undefined
-      snacks: []
+      snacks: [],
     };
     const s2 = SimpleWithWrappers.toJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
