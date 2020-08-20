@@ -199,6 +199,6 @@ function generateDataLoadersType() {
         .addParameter('identifier', ts_poet_1.TypeNames.STRING)
         .addParameter('constructorFn', ts_poet_1.TypeNames.lambda2([], ts_poet_1.TypeNames.typeVariable('T')))
         .returns(ts_poet_1.TypeNames.typeVariable('T'));
-    return ts_poet_1.InterfaceSpec.create('DataLoaders').addModifiers(ts_poet_1.Modifier.EXPORT).addFunction(fn);
+    return ts_poet_1.InterfaceSpec.create('DataLoaders').addFunction(fn);
 }
 exports.generateDataLoadersType = generateDataLoadersType;
