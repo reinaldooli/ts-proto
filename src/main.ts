@@ -82,7 +82,6 @@ export type Options = {
   lowerCaseServiceMethods: boolean;
   nestJs: boolean;
   env: EnvOption;
-  asClass: boolean;
 };
 
 export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, parameter: string): FileSpec {
@@ -113,11 +112,7 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
     fileDesc,
     sourceInfo,
     (fullName, message, sInfo) => {
-      if (options.asClass) {
-        file = file.addClass(generateClassDeclaration(typeMap, fullName, message, sInfo, options));
-      } else {
-        file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
-      }
+      file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
     },
     options,
     (fullName, enumDesc, sInfo) => {
@@ -535,32 +530,6 @@ function generateOneofProperty(
     prop = prop.addJavadoc(comments.join('\n'));
   }
   return prop;
-}
-
-// Create the interface with properties
-function generateClassDeclaration(
-  typeMap: TypeMap,
-  fullName: string,
-  messageDesc: DescriptorProto,
-  sourceInfo: SourceInfo,
-  options: Options
-) {
-  let message = ClassSpec.create(fullName).addModifiers(Modifier.EXPORT);
-  maybeAddComment(sourceInfo, (text) => (message = message.addJavadoc(text)));
-
-  let index = 0;
-  for (const fieldDesc of messageDesc.field) {
-    let prop = PropertySpec.create(
-      maybeSnakeToCamel(fieldDesc.name, options),
-      toTypeName(typeMap, messageDesc, fieldDesc, options)
-    );
-
-    const info = sourceInfo.lookup(Fields.message.field, index++);
-    maybeAddComment(info, (text) => (prop = prop.addJavadoc(text)));
-
-    message = message.addProperty(prop);
-  }
-  return message;
 }
 
 function generateBaseInstance(typeMap: TypeMap, fullName: string, messageDesc: DescriptorProto, options: Options) {

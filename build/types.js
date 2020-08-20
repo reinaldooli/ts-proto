@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectMapType = exports.toTypeName = exports.messageToTypeName = exports.valueTypeName = exports.isEmptyType = exports.isValueType = exports.isTimestamp = exports.isMapType = exports.isLong = exports.isRepeated = exports.isWithinOneOf = exports.isEnum = exports.isMessage = exports.isBytes = exports.isPrimitive = exports.createTypeMap = exports.defaultValue = exports.packedType = exports.toReaderCall = exports.basicTypeName = exports.basicLongWireType = exports.basicWireType = void 0;
+exports.detectBatchMethod = exports.responseObservable = exports.responsePromise = exports.responseType = exports.requestType = exports.detectMapType = exports.toTypeName = exports.getEnumMethod = exports.messageToTypeName = exports.valueTypeName = exports.isEmptyType = exports.isValueType = exports.isTimestamp = exports.isMapType = exports.isLong = exports.isRepeated = exports.isWithinOneOf = exports.isEnum = exports.isMessage = exports.isBytes = exports.isPrimitive = exports.createTypeMap = exports.defaultValue = exports.packedType = exports.toReaderCall = exports.basicTypeName = exports.basicLongWireType = exports.basicWireType = void 0;
 const pbjs_1 = require("../build/pbjs");
 const ts_poet_1 = require("ts-poet");
 const main_1 = require("./main");
 const utils_1 = require("./utils");
 var FieldDescriptorProto = pbjs_1.google.protobuf.FieldDescriptorProto;
 const sourceInfo_1 = require("./sourceInfo");
+const case_1 = require("./case");
 /** Based on https://github.com/dcodeIO/protobuf.js/blob/master/src/types.js#L37. */
 function basicWireType(type) {
     switch (type) {
@@ -326,6 +327,11 @@ exports.messageToTypeName = messageToTypeName;
 function toModuleAndType(typeMap, protoType) {
     return typeMap.get(protoType) || utils_1.fail(`No type found for ${protoType}`);
 }
+function getEnumMethod(typeMap, enumProtoType, methodSuffix) {
+    const [module, type] = toModuleAndType(typeMap, enumProtoType);
+    return ts_poet_1.TypeNames.importedType(`${case_1.camelCase(type)}${methodSuffix}@./${module}`);
+}
+exports.getEnumMethod = getEnumMethod;
 /** Return the TypeName for any field (primitive/message/etc.) as exposed in the interface. */
 function toTypeName(typeMap, messageDesc, field, options) {
     let type = basicTypeName(typeMap, field, options, { keepValueType: false });
@@ -374,3 +380,60 @@ function detectMapType(typeMap, messageDesc, fieldDesc, options) {
     return undefined;
 }
 exports.detectMapType = detectMapType;
+function requestType(typeMap, methodDesc, options) {
+    let typeName = messageToTypeName(typeMap, methodDesc.inputType, options);
+    if (methodDesc.clientStreaming) {
+        return ts_poet_1.TypeNames.anyType('Observable@rxjs').param(typeName);
+    }
+    return typeName;
+}
+exports.requestType = requestType;
+function responseType(typeMap, methodDesc, options) {
+    return messageToTypeName(typeMap, methodDesc.outputType, options);
+}
+exports.responseType = responseType;
+function responsePromise(typeMap, methodDesc, options) {
+    return ts_poet_1.TypeNames.PROMISE.param(responseType(typeMap, methodDesc, options));
+}
+exports.responsePromise = responsePromise;
+function responseObservable(typeMap, methodDesc, options) {
+    return ts_poet_1.TypeNames.anyType('Observable@rxjs').param(responseType(typeMap, methodDesc, options));
+}
+exports.responseObservable = responseObservable;
+function detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options) {
+    const nameMatches = methodDesc.name.startsWith('Batch');
+    const inputType = typeMap.get(methodDesc.inputType);
+    const outputType = typeMap.get(methodDesc.outputType);
+    if (nameMatches && inputType && outputType) {
+        // TODO: This might be enums?
+        const inputTypeDesc = inputType[2];
+        const outputTypeDesc = outputType[2];
+        if (hasSingleRepeatedField(inputTypeDesc) && hasSingleRepeatedField(outputTypeDesc)) {
+            const singleMethodName = methodDesc.name.replace('Batch', 'Get');
+            const inputFieldName = inputTypeDesc.field[0].name;
+            const inputType = basicTypeName(typeMap, inputTypeDesc.field[0], options); // e.g. repeated string -> string
+            const outputFieldName = outputTypeDesc.field[0].name;
+            let outputType = basicTypeName(typeMap, outputTypeDesc.field[0], options); // e.g. repeated Entity -> Entity
+            const mapType = detectMapType(typeMap, outputTypeDesc, outputTypeDesc.field[0], options);
+            if (mapType) {
+                outputType = mapType.valueType;
+            }
+            const uniqueIdentifier = `${fileDesc.package}.${serviceDesc.name}.${methodDesc.name}`;
+            return {
+                methodDesc,
+                uniqueIdentifier,
+                singleMethodName,
+                inputFieldName,
+                inputType,
+                outputFieldName,
+                outputType,
+                mapType: !!mapType,
+            };
+        }
+    }
+    return undefined;
+}
+exports.detectBatchMethod = detectBatchMethod;
+function hasSingleRepeatedField(messageDesc) {
+    return messageDesc.field.length == 1 && messageDesc.field[0].label === FieldDescriptorProto.Label.LABEL_REPEATED;
+}

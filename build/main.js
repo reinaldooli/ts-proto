@@ -1,15 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.visit = exports.generateFile = exports.OneofOption = exports.EnvOption = exports.LongOption = void 0;
+exports.contextTypeVar = exports.visit = exports.generateFile = exports.OneofOption = exports.EnvOption = exports.LongOption = void 0;
 const ts_poet_1 = require("ts-poet");
 const pbjs_1 = require("../build/pbjs");
 const types_1 = require("./types");
 const sequency_1 = require("sequency");
 const sourceInfo_1 = require("./sourceInfo");
 const utils_1 = require("./utils");
+const case_1 = require("./case");
+const generate_nestjs_1 = require("./generate-nestjs");
+const generate_services_1 = require("./generate-services");
 var FieldDescriptorProto = pbjs_1.google.protobuf.FieldDescriptorProto;
 var FileDescriptorProto = pbjs_1.google.protobuf.FileDescriptorProto;
-const dataloader = ts_poet_1.TypeNames.anyType('DataLoader*dataloader');
+const generate_grpc_web_1 = require("./generate-grpc-web");
 var LongOption;
 (function (LongOption) {
     LongOption["NUMBER"] = "number";
@@ -48,18 +51,13 @@ function generateFile(typeMap, fileDesc, parameter) {
     utils_1.maybeAddComment(headerComment, (text) => (file = file.addComment(text)));
     // first make all the type declarations
     visit(fileDesc, sourceInfo, (fullName, message, sInfo) => {
-        if (options.asClass) {
-            file = file.addClass(generateClassDeclaration(typeMap, fullName, message, sInfo, options));
-        }
-        else {
-            file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
-        }
+        file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
     }, options, (fullName, enumDesc, sInfo) => {
         file = file.addCode(generateEnum(options, fullName, enumDesc, sInfo));
     });
     // If nestJs=true export [package]_PACKAGE_NAME and [service]_SERVICE_NAME const
     if (options.nestJs) {
-        file = file.addCode(ts_poet_1.CodeBlock.empty().add(`export const %L = '%L'`, `${camelToSnake(fileDesc.package.replace(/\./g, '_'))}_PACKAGE_NAME`, fileDesc.package));
+        file = file.addCode(ts_poet_1.CodeBlock.empty().add(`export const %L = '%L'`, `${case_1.camelToSnake(fileDesc.package.replace(/\./g, '_'))}_PACKAGE_NAME`, fileDesc.package));
     }
     if (options.outputEncodeMethods || options.outputJsonMethods) {
         // then add the encoder/decoder/base instance
@@ -82,30 +80,44 @@ function generateFile(typeMap, fileDesc, parameter) {
         }, options);
     }
     visitServices(fileDesc, sourceInfo, (serviceDesc, sInfo) => {
-        file = file.addInterface(options.nestJs
-            ? generateNestjsServiceController(typeMap, fileDesc, sInfo, serviceDesc, options)
-            : generateService(typeMap, fileDesc, sInfo, serviceDesc, options));
-        file = file.addInterface(generateServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
         if (options.nestJs) {
+            // NestJS is sufficiently different that we special case all of the client/server interfaces
             // generate nestjs grpc client interface
-            file = file.addInterface(generateNestjsServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
+            file = file.addInterface(generate_nestjs_1.generateNestjsServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
+            // and the service controller interface
+            file = file.addInterface(generate_nestjs_1.generateNestjsServiceController(typeMap, fileDesc, sInfo, serviceDesc, options));
             // generate nestjs grpc service controller decorator
-            file = file.addFunction(generateNestjsGrpcServiceMethodsDecorator(serviceDesc, options));
-            let serviceConstName = `${camelToSnake(serviceDesc.name)}_NAME`;
+            file = file.addFunction(generate_nestjs_1.generateNestjsGrpcServiceMethodsDecorator(serviceDesc, options));
+            let serviceConstName = `${case_1.camelToSnake(serviceDesc.name)}_NAME`;
             if (!serviceDesc.name.toLowerCase().endsWith('service')) {
-                serviceConstName = `${camelToSnake(serviceDesc.name)}_SERVICE_NAME`;
+                serviceConstName = `${case_1.camelToSnake(serviceDesc.name)}_SERVICE_NAME`;
             }
             file = file.addCode(ts_poet_1.CodeBlock.empty().add(`export const %L = '%L';`, serviceConstName, serviceDesc.name));
         }
-        file = !options.outputClientImpl
-            ? file
-            : file.addClass(generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options));
+        else {
+            // This could be twirp or grpc-web or JSON (maybe). So far all of their interaces
+            // are fairly similar.
+            file = file.addInterface(generate_services_1.generateService(typeMap, fileDesc, sInfo, serviceDesc, options));
+            if (options.outputClientImpl === true) {
+                file = file.addClass(generate_services_1.generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options));
+            }
+            else if (options.outputClientImpl === 'grpc-web') {
+                file = file.addClass(generate_grpc_web_1.generateGrpcClientImpl(typeMap, fileDesc, serviceDesc, options));
+                file = file.addCode(generate_grpc_web_1.generateGrpcServiceDesc(fileDesc, serviceDesc));
+                serviceDesc.method.forEach((method) => {
+                    file = file.addCode(generate_grpc_web_1.generateGrpcMethodDesc(options, typeMap, serviceDesc, method));
+                });
+            }
+        }
     });
-    if (options.outputClientImpl && fileDesc.service.length > 0) {
-        file = file.addInterface(generateRpcType(options));
+    if (options.outputClientImpl === true) {
+        file = file.addInterface(generate_services_1.generateRpcType(options));
+    }
+    else if (options.outputClientImpl === 'grpc-web') {
+        file = generate_grpc_web_1.addGrpcWebMisc(options, file);
     }
     if (options.useContext) {
-        file = file.addInterface(generateDataLoadersType());
+        file = file.addInterface(generate_services_1.generateDataLoadersType());
     }
     let hasAnyTimestamps = false;
     visit(fileDesc, sourceInfo, (_, messageType) => {
@@ -244,27 +256,30 @@ const UNRECOGNIZED_ENUM_NAME = 'UNRECOGNIZED';
 const UNRECOGNIZED_ENUM_VALUE = -1;
 function generateEnum(options, fullName, enumDesc, sourceInfo) {
     let code = ts_poet_1.CodeBlock.empty();
+    // Output the `enum { Foo, A = 0, B = 1 }`
     utils_1.maybeAddComment(sourceInfo, (text) => (code = code.add(`/** %L */\n`, text)));
-    code = code.beginControlFlow('export const %L =', fullName);
+    code = code.beginControlFlow('export enum %L', fullName);
     enumDesc.value.forEach((valueDesc, index) => {
         const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index);
         utils_1.maybeAddComment(info, (text) => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-        code = code.add('%L: %L as const,\n', valueDesc.name, valueDesc.number.toString());
+        code = code.add('%L = %L,\n', valueDesc.name, valueDesc.number.toString());
     });
-    code = code.add('%L: %L as const,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
-    if (options.outputJsonMethods) {
-        code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
-        code = code.addHashEntry(generateEnumToJson(fullName, enumDesc));
-    }
+    code = code.add('%L = %L,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
     code = code.endControlFlow();
-    code = code.add('\n');
-    const enumTypes = [...enumDesc.value.map((v) => v.number.toString()), UNRECOGNIZED_ENUM_VALUE.toString()];
-    code = code.add('export type %L = %L;', fullName, enumTypes.join(' | '));
-    code = code.add('\n');
+    if (options.outputJsonMethods) {
+        code = code.add('\n');
+        code = code.addFunction(generateEnumFromJson(fullName, enumDesc));
+        code = code.add('\n');
+        code = code.addFunction(generateEnumToJson(fullName, enumDesc));
+    }
     return code;
 }
+/** Generates a function with a big switch statement to decode JSON -> our enum. */
 function generateEnumFromJson(fullName, enumDesc) {
-    let func = ts_poet_1.FunctionSpec.create('fromJSON').addParameter('object', 'any').returns(fullName);
+    let func = ts_poet_1.FunctionSpec.create(`${case_1.camelCase(fullName)}FromJSON`)
+        .addModifiers(ts_poet_1.Modifier.EXPORT)
+        .addParameter('object', 'any')
+        .returns(fullName);
     let body = ts_poet_1.CodeBlock.empty().beginControlFlow('switch (object)');
     for (const valueDesc of enumDesc.value) {
         body = body
@@ -280,8 +295,12 @@ function generateEnumFromJson(fullName, enumDesc) {
         .endControlFlow();
     return func.addCodeBlock(body);
 }
+/** Generates a function with a big switch statement to encode our enum -> JSON. */
 function generateEnumToJson(fullName, enumDesc) {
-    let func = ts_poet_1.FunctionSpec.create('toJSON').addParameter('object', fullName).returns('string');
+    let func = ts_poet_1.FunctionSpec.create(`${case_1.camelCase(fullName)}ToJSON`)
+        .addModifiers(ts_poet_1.Modifier.EXPORT)
+        .addParameter('object', fullName)
+        .returns('string');
     let body = ts_poet_1.CodeBlock.empty().beginControlFlow('switch (object)');
     for (const valueDesc of enumDesc.value) {
         body = body.add('case %L.%L:%>\n', fullName, valueDesc.name).addStatement('return %S%<', valueDesc.name);
@@ -310,7 +329,7 @@ function generateInterfaceDeclaration(typeMap, fullName, messageDesc, sourceInfo
             }
             return;
         }
-        let prop = ts_poet_1.PropertySpec.create(maybeSnakeToCamel(fieldDesc.name, options), types_1.toTypeName(typeMap, messageDesc, fieldDesc, options), isOptionalProperty(fieldDesc, options));
+        let prop = ts_poet_1.PropertySpec.create(case_1.maybeSnakeToCamel(fieldDesc.name, options), types_1.toTypeName(typeMap, messageDesc, fieldDesc, options), isOptionalProperty(fieldDesc, options));
         const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index);
         utils_1.maybeAddComment(info, (text) => (prop = prop.addJavadoc(text)));
         message = message.addProperty(prop);
@@ -322,11 +341,11 @@ function generateOneofProperty(typeMap, messageDesc, oneofIndex, sourceInfo, opt
         return types_1.isWithinOneOf(field) && field.oneofIndex === oneofIndex;
     });
     let unionType = ts_poet_1.TypeNames.unionType(...fields.map((f) => {
-        let fieldName = maybeSnakeToCamel(f.name, options);
+        let fieldName = case_1.maybeSnakeToCamel(f.name, options);
         let typeName = types_1.toTypeName(typeMap, messageDesc, f, options);
         return ts_poet_1.TypeNames.anonymousType(new ts_poet_1.Member('$case', ts_poet_1.TypeNames.typeLiteral(fieldName), false), new ts_poet_1.Member(fieldName, typeName, /* optional */ false));
     }));
-    let prop = ts_poet_1.PropertySpec.create(maybeSnakeToCamel(messageDesc.oneofDecl[oneofIndex].name, options), unionType, true // optional
+    let prop = ts_poet_1.PropertySpec.create(case_1.maybeSnakeToCamel(messageDesc.oneofDecl[oneofIndex].name, options), unionType, true // optional
     );
     // Ideally we'd put the comments for each oneof field next to the anonymous
     // type we've created in the type union above, but ts-poet currently lacks
@@ -339,26 +358,13 @@ function generateOneofProperty(typeMap, messageDesc, oneofIndex, sourceInfo, opt
             return;
         }
         const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index);
-        const name = maybeSnakeToCamel(field.name, options);
-        utils_1.maybeAddComment(info, (text) => comments.push(field.name + '\n' + text));
+        const name = case_1.maybeSnakeToCamel(field.name, options);
+        utils_1.maybeAddComment(info, (text) => comments.push(name + '\n' + text));
     });
     if (comments.length) {
         prop = prop.addJavadoc(comments.join('\n'));
     }
     return prop;
-}
-// Create the interface with properties
-function generateClassDeclaration(typeMap, fullName, messageDesc, sourceInfo, options) {
-    let message = ts_poet_1.ClassSpec.create(fullName).addModifiers(ts_poet_1.Modifier.EXPORT);
-    utils_1.maybeAddComment(sourceInfo, (text) => (message = message.addJavadoc(text)));
-    let index = 0;
-    for (const fieldDesc of messageDesc.field) {
-        let prop = ts_poet_1.PropertySpec.create(maybeSnakeToCamel(fieldDesc.name, options), types_1.toTypeName(typeMap, messageDesc, fieldDesc, options));
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index++);
-        utils_1.maybeAddComment(info, (text) => (prop = prop.addJavadoc(text)));
-        message = message.addProperty(prop);
-    }
-    return message;
 }
 function generateBaseInstance(typeMap, fullName, messageDesc, options) {
     // Create a 'base' instance with default values for decode to use as a prototype
@@ -367,7 +373,7 @@ function generateBaseInstance(typeMap, fullName, messageDesc, options) {
     sequency_1.asSequence(messageDesc.field)
         .filterNot(types_1.isWithinOneOf)
         .forEach((field) => {
-        initialValue = initialValue.addHashEntry(maybeSnakeToCamel(field.name, options), types_1.defaultValue(typeMap, field, options));
+        initialValue = initialValue.addHashEntry(case_1.maybeSnakeToCamel(field.name, options), types_1.defaultValue(typeMap, field, options));
     });
     return baseMessage.initializerBlock(initialValue.endHash());
 }
@@ -378,7 +384,7 @@ function visit(proto, sourceInfo, messageFn, options, enumFn = () => { }, tsPref
         // I.e. Foo_Bar.Zaz_Inner
         const protoFullName = protoPrefix + enumDesc.name;
         // I.e. FooBar_ZazInner
-        const tsFullName = tsPrefix + maybeSnakeToCamel(enumDesc.name, options);
+        const tsFullName = tsPrefix + case_1.maybeSnakeToCamel(enumDesc.name, options);
         const nestedSourceInfo = sourceInfo.open(childEnumType, index);
         enumFn(tsFullName, enumDesc, nestedSourceInfo, protoFullName);
     });
@@ -388,7 +394,7 @@ function visit(proto, sourceInfo, messageFn, options, enumFn = () => { }, tsPref
         // I.e. Foo_Bar.Zaz_Inner
         const protoFullName = protoPrefix + message.name;
         // I.e. FooBar_ZazInner
-        const tsFullName = tsPrefix + maybeSnakeToCamel(message.name, options);
+        const tsFullName = tsPrefix + case_1.maybeSnakeToCamel(messageName(message), options);
         const nestedSourceInfo = sourceInfo.open(childType, index);
         messageFn(tsFullName, message, nestedSourceInfo, protoFullName);
         visit(message, nestedSourceInfo, messageFn, options, enumFn, tsFullName + '_', protoFullName + '.');
@@ -416,7 +422,7 @@ function generateDecode(typeMap, fullName, messageDesc, options) {
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
         const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', maybeSnakeToCamel(field.name, options), value);
+        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
     });
     // start the tag loop
     func = func
@@ -425,7 +431,7 @@ function generateDecode(typeMap, fullName, messageDesc, options) {
         .beginControlFlow('switch (tag >>> 3)');
     // add a case for each incoming field
     messageDesc.field.forEach((field) => {
-        const fieldName = maybeSnakeToCamel(field.name, options);
+        const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         func = func.addCode('case %L:%>\n', field.number);
         // get a generic 'reader.doSomething' bit that is specific to the basic type
         let readSnippet;
@@ -490,7 +496,7 @@ function generateDecode(typeMap, fullName, messageDesc, options) {
             }
         }
         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
             func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet);
         }
         else {
@@ -512,7 +518,7 @@ function generateEncode(typeMap, fullName, messageDesc, options) {
         .returns('Writer@protobufjs/minimal');
     // then add a case for each field
     messageDesc.field.forEach((field) => {
-        const fieldName = maybeSnakeToCamel(field.name, options);
+        const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         // get a generic writer.doSomething based on the basic type
         let writeSnippet;
         if (types_1.isPrimitive(field)) {
@@ -558,7 +564,7 @@ function generateEncode(typeMap, fullName, messageDesc, options) {
             }
         }
         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
             func = func
                 .beginControlFlow(`if (message.%L?.$case === '%L' && message.%L?.%L !== %L)`, oneofName, fieldName, oneofName, fieldName, types_1.defaultValue(typeMap, field, options))
                 .addStatement('%L', writeSnippet(`message.${oneofName}.${fieldName}`))
@@ -592,15 +598,16 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
         const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', maybeSnakeToCamel(field.name, options), value);
+        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
     });
     // add a check for each incoming field
     messageDesc.field.forEach((field) => {
-        const fieldName = maybeSnakeToCamel(field.name, options);
+        const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         // get a generic 'reader.doSomething' bit that is specific to the basic type
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
-                return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                const fromJson = types_1.getEnumMethod(typeMap, field.typeName, 'FromJSON');
+                return ts_poet_1.CodeBlock.of('%T(%L)', fromJson, from);
             }
             else if (types_1.isPrimitive(field)) {
                 // Convert primitives using the String(value)/Number(value)/bytesFromBase64(value)
@@ -613,29 +620,40 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
                     }
                 }
                 else if (types_1.isLong(field) && options.forceLong === LongOption.LONG) {
-                    const cstr = capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
+                    const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
                     return ts_poet_1.CodeBlock.of('%L.fromString(%L)', cstr, from);
                 }
                 else {
-                    const cstr = capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
+                    const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
                     return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
                 }
-                // if (basicLongWireType(field.type) !== undefined) {
-                //   readSnippet = CodeBlock.of('longToNumber(%L as Long)', readSnippet);
-                // }
             }
             else if (types_1.isTimestamp(field)) {
                 return ts_poet_1.CodeBlock.of('fromJsonTimestamp(%L)', from);
             }
             else if (types_1.isValueType(field)) {
-                return ts_poet_1.CodeBlock.of('%L(%L)', capitalize(types_1.valueTypeName(field).toString()), from);
+                return ts_poet_1.CodeBlock.of('%L(%L)', case_1.capitalize(types_1.valueTypeName(field).toString()), from);
             }
             else if (types_1.isMessage(field)) {
                 if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
                     const valueType = typeMap.get(field.typeName)[2].field[1];
                     if (types_1.isPrimitive(valueType)) {
-                        const cstr = capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
-                        return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                        // TODO Can we not copy/paste this from ^?
+                        if (types_1.isBytes(valueType)) {
+                            if (options.env === EnvOption.NODE) {
+                                return ts_poet_1.CodeBlock.of('Buffer.from(bytesFromBase64(%L as string))', from);
+                            }
+                            else {
+                                return ts_poet_1.CodeBlock.of('bytesFromBase64(%L as string)', from);
+                            }
+                        }
+                        else {
+                            const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
+                            return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                        }
+                    }
+                    else if (types_1.isTimestamp(valueType)) {
+                        return ts_poet_1.CodeBlock.of('fromJsonTimestamp(%L)', from);
                     }
                     else {
                         return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
@@ -666,7 +684,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
             }
         }
         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
             func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${fieldName}`));
         }
         else {
@@ -693,13 +711,33 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
     func = func.addCodeBlock(ts_poet_1.CodeBlock.empty().addStatement('const obj: any = {}'));
     // then add a case for each field
     messageDesc.field.forEach((field) => {
-        const fieldName = maybeSnakeToCamel(field.name, options);
+        const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
-                return ts_poet_1.CodeBlock.of('%T.toJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                const toJson = types_1.getEnumMethod(typeMap, field.typeName, 'ToJSON');
+                return types_1.isWithinOneOf(field)
+                    ? ts_poet_1.CodeBlock.of('%L !== undefined ? %T(%L) : undefined', from, toJson, from)
+                    : ts_poet_1.CodeBlock.of('%T(%L)', toJson, from);
             }
             else if (types_1.isTimestamp(field)) {
                 return ts_poet_1.CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);
+            }
+            else if (types_1.isMapType(typeMap, messageDesc, field, options)) {
+                // For map types, drill-in and then admittedly re-hard-code our per-value-type logic
+                const valueType = typeMap.get(field.typeName)[2].field[1];
+                if (types_1.isEnum(valueType)) {
+                    const toJson = types_1.getEnumMethod(typeMap, field.typeName, 'ToJSON');
+                    return ts_poet_1.CodeBlock.of('%T(%L)', toJson, from);
+                }
+                else if (types_1.isBytes(valueType)) {
+                    return ts_poet_1.CodeBlock.of('base64FromBytes(%L)', from);
+                }
+                else if (types_1.isTimestamp(valueType)) {
+                    return ts_poet_1.CodeBlock.of('%L.toISOString()', from);
+                }
+                else {
+                    return ts_poet_1.CodeBlock.of('%L', from);
+                }
             }
             else if (types_1.isMessage(field) && !types_1.isValueType(field) && !types_1.isMapType(typeMap, messageDesc, field, options)) {
                 return ts_poet_1.CodeBlock.of('%L ? %T.toJSON(%L) : %L', from, types_1.basicTypeName(typeMap, field, options, { keepValueType: true }), from, types_1.defaultValue(typeMap, field, options));
@@ -714,7 +752,18 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
                 return ts_poet_1.CodeBlock.of('%L || %L', from, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
             }
         };
-        if (types_1.isRepeated(field) && !types_1.isMapType(typeMap, messageDesc, field, options)) {
+        if (types_1.isMapType(typeMap, messageDesc, field, options)) {
+            // Maps might need their values transformed, i.e. bytes --> base64
+            func = func
+                .addStatement('obj.%L = {}', fieldName)
+                .beginControlFlow('if (message.%L)', fieldName)
+                .beginLambda('Object.entries(message.%L).forEach(([k, v]) =>', fieldName)
+                .addStatement('obj.%L[k] = %L', fieldName, readSnippet('v'))
+                .endLambda(')')
+                .endControlFlow();
+        }
+        else if (types_1.isRepeated(field)) {
+            // Arrays might need their elements transformed
             func = func
                 .beginControlFlow('if (message.%L)', fieldName)
                 .addStatement('obj.%L = message.%L.map(e => %L)', fieldName, fieldName, readSnippet('e'))
@@ -723,7 +772,8 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
                 .endControlFlow();
         }
         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            // oneofs in a union are only output as `oneof name = ...`
+            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
             func = func.addStatement(`obj.%L = message.%L?.$case === '%L' && %L`, fieldName, oneofName, fieldName, readSnippet(`message.${oneofName}?.${fieldName}`));
         }
         else {
@@ -742,11 +792,11 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
         const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', maybeSnakeToCamel(field.name, options), value);
+        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
     });
     // add a check for each incoming field
     messageDesc.field.forEach((field) => {
-        const fieldName = maybeSnakeToCamel(field.name, options);
+        const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         const readSnippet = (from) => {
             if (types_1.isEnum(field) || types_1.isPrimitive(field) || types_1.isTimestamp(field) || types_1.isValueType(field)) {
                 return ts_poet_1.CodeBlock.of(from);
@@ -755,8 +805,16 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
                 if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
                     const valueType = typeMap.get(field.typeName)[2].field[1];
                     if (types_1.isPrimitive(valueType)) {
-                        const cstr = capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
-                        return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                        if (types_1.isBytes(valueType)) {
+                            return ts_poet_1.CodeBlock.of('%L', from);
+                        }
+                        else {
+                            const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
+                            return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                        }
+                    }
+                    else if (types_1.isTimestamp(valueType)) {
+                        return ts_poet_1.CodeBlock.of('%L', from);
                     }
                     else {
                         return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
@@ -789,7 +847,7 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
             }
         }
         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
             func = func
                 .beginControlFlow(`if (object.%L?.$case === '%L' && object.%L?.%L !== undefined && object.%L?.%L !== null)`, oneofName, fieldName, oneofName, fieldName, oneofName, fieldName)
                 .addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${oneofName}.${fieldName}`));
@@ -815,411 +873,7 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
     // and then wrap up the switch/while/return
     return func.addStatement('return message');
 }
-const contextTypeVar = ts_poet_1.TypeNames.typeVariable('Context', ts_poet_1.TypeNames.bound('DataLoaders'));
-function generateService(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        service = service.addTypeVariable(contextTypeVar);
-    }
-    utils_1.maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
-    serviceDesc.method.forEach((methodDesc, index) => {
-        if (options.lowerCaseServiceMethods) {
-            methodDesc.name = camelCase(methodDesc.name);
-        }
-        let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
-        utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-        requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
-        if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-        }
-        // Use metadata as last argument for interface only configuration
-        if (options.addGrpcMetadata) {
-            requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
-        }
-        // Return observable for interface only configuration, passing returnObservable=true and methodDesc.serverStreaming=true
-        if (options.returnObservable || methodDesc.serverStreaming) {
-            requestFn = requestFn.returns(responseObservable(typeMap, methodDesc, options));
-        }
-        else {
-            requestFn = requestFn.returns(responsePromise(typeMap, methodDesc, options));
-        }
-        service = service.addFunction(requestFn);
-        if (options.useContext) {
-            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
-            if (batchMethod) {
-                const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
-                let batchFn = ts_poet_1.FunctionSpec.create(name);
-                if (options.useContext) {
-                    batchFn = batchFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-                }
-                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
-                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
-                service = service.addFunction(batchFn);
-            }
-        }
-    });
-    return service;
-}
-function generateServiceClient(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name + 'Client').addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        service = service.addTypeVariable(contextTypeVar);
-    }
-    utils_1.maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
-    serviceDesc.method.forEach((methodDesc, index) => {
-        if (options.lowerCaseServiceMethods) {
-            methodDesc.name = camelCase(methodDesc.name);
-        }
-        let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
-        utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-        requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
-        if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx?', ts_poet_1.TypeNames.typeVariable('Context'));
-        }
-        // Use metadata as last argument for interface only configuration
-        if (options.addGrpcMetadata) {
-            requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
-        }
-        requestFn = requestFn.returns(responseObservable(typeMap, methodDesc, options));
-        service = service.addFunction(requestFn);
-        if (options.useContext) {
-            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
-            if (batchMethod) {
-                const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
-                let batchFn = ts_poet_1.FunctionSpec.create(name);
-                if (options.useContext) {
-                    batchFn = batchFn.addParameter('ctx?', ts_poet_1.TypeNames.typeVariable('Context'));
-                }
-                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
-                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
-                service = service.addFunction(batchFn);
-            }
-        }
-    });
-    return service;
-}
-function hasSingleRepeatedField(messageDesc) {
-    return messageDesc.field.length == 1 && messageDesc.field[0].label === FieldDescriptorProto.Label.LABEL_REPEATED;
-}
-function generateRegularRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc) {
-    let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-    if (options.useContext) {
-        requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-    }
-    let inputType = requestType(typeMap, methodDesc, options);
-    return requestFn
-        .addParameter('request', inputType)
-        .addStatement('const data = %L.encode(request).finish()', inputType)
-        .addStatement('const promise = this.rpc.request(%L"%L.%L", %S, %L)', options.useContext ? 'ctx, ' : '', // sneak ctx in as the 1st parameter to our rpc call
-    fileDesc.package, serviceDesc.name, methodDesc.name, 'data')
-        .addStatement('return promise.then(data => %L.decode(new %T(data)))', responseType(typeMap, methodDesc, options), 'Reader@protobufjs/minimal')
-        .returns(responsePromise(typeMap, methodDesc, options));
-}
-function generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options) {
-    // Define the FooServiceImpl class
-    let client = ts_poet_1.ClassSpec.create(`${serviceDesc.name}ClientImpl`).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        client = client.addTypeVariable(contextTypeVar);
-        client = client.addInterface(`${serviceDesc.name}<Context>`);
-    }
-    else {
-        client = client.addInterface(serviceDesc.name);
-    }
-    // Create the constructor(rpc: Rpc)
-    const rpcType = options.useContext ? 'Rpc<Context>' : 'Rpc';
-    client = client.addFunction(ts_poet_1.FunctionSpec.createConstructor().addParameter('rpc', rpcType).addStatement('this.rpc = rpc'));
-    client = client.addProperty('rpc', rpcType, { modifiers: [ts_poet_1.Modifier.PRIVATE, ts_poet_1.Modifier.READONLY] });
-    // Create a method for each FooService method
-    for (const methodDesc of serviceDesc.method) {
-        // See if this this fuzzy matches to a batchable method
-        if (options.useContext) {
-            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
-            if (batchMethod) {
-                client = client.addFunction(generateBatchingRpcMethod(typeMap, batchMethod));
-            }
-        }
-        if (options.useContext && methodDesc.name.match(/^Get[A-Z]/)) {
-            client = client.addFunction(generateCachingRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc));
-        }
-        else {
-            client = client.addFunction(generateRegularRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc));
-        }
-    }
-    return client;
-}
-function generateNestjsServiceController(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(`${serviceDesc.name}Controller`).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        service = service.addTypeVariable(contextTypeVar);
-    }
-    utils_1.maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
-    serviceDesc.method.forEach((methodDesc, index) => {
-        if (options.lowerCaseServiceMethods) {
-            methodDesc.name = camelCase(methodDesc.name);
-        }
-        let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-        if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-        }
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
-        utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-        requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
-        // Use metadata as last argument for interface only configuration
-        if (options.addGrpcMetadata) {
-            requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
-        }
-        // Return observable for interface only configuration, passing returnObservable=true and methodDesc.serverStreaming=true
-        if (types_1.isEmptyType(methodDesc.outputType)) {
-            requestFn = requestFn.returns(ts_poet_1.TypeNames.anyType('void'));
-        }
-        else if (options.returnObservable || methodDesc.serverStreaming) {
-            requestFn = requestFn.returns(responseObservable(typeMap, methodDesc, options));
-        }
-        else {
-            // generate nestjs union type
-            requestFn = requestFn.returns(ts_poet_1.TypeNames.unionType(responsePromise(typeMap, methodDesc, options), responseObservable(typeMap, methodDesc, options), responseType(typeMap, methodDesc, options)));
-        }
-        service = service.addFunction(requestFn);
-        if (options.useContext) {
-            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
-            if (batchMethod) {
-                const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
-                let batchFn = ts_poet_1.FunctionSpec.create(name);
-                if (options.useContext) {
-                    batchFn = batchFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-                }
-                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
-                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
-                service = service.addFunction(batchFn);
-            }
-        }
-    });
-    return service;
-}
-function generateNestjsServiceClient(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(`${serviceDesc.name}Client`).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        service = service.addTypeVariable(contextTypeVar);
-    }
-    utils_1.maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
-    serviceDesc.method.forEach((methodDesc, index) => {
-        if (options.lowerCaseServiceMethods) {
-            methodDesc.name = camelCase(methodDesc.name);
-        }
-        let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-        if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-        }
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
-        utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-        requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
-        // Use metadata as last argument for interface only configuration
-        if (options.addGrpcMetadata) {
-            requestFn = requestFn.addParameter('metadata?', 'Metadata@grpc');
-        }
-        // Return observable since nestjs client always returns an Observable
-        requestFn = requestFn.returns(responseObservable(typeMap, methodDesc, options));
-        service = service.addFunction(requestFn);
-        if (options.useContext) {
-            const batchMethod = detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
-            if (batchMethod) {
-                const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
-                let batchFn = ts_poet_1.FunctionSpec.create(name);
-                if (options.useContext) {
-                    batchFn = batchFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-                }
-                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
-                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
-                service = service.addFunction(batchFn);
-            }
-        }
-    });
-    return service;
-}
-function generateNestjsGrpcServiceMethodsDecorator(serviceDesc, options) {
-    let grpcServiceDecorator = ts_poet_1.FunctionSpec.create(`${serviceDesc.name}ControllerMethods`).addModifiers(ts_poet_1.Modifier.EXPORT);
-    const grpcMethods = serviceDesc.method
-        .filter((m) => !m.clientStreaming)
-        .map((m) => `'${options.lowerCaseServiceMethods ? camelCase(m.name) : m.name}'`)
-        .join(', ');
-    const grpcStreamMethods = serviceDesc.method
-        .filter((m) => m.clientStreaming)
-        .map((m) => `'${options.lowerCaseServiceMethods ? camelCase(m.name) : m.name}'`)
-        .join(', ');
-    const grpcMethodType = ts_poet_1.TypeNames.importedType('GrpcMethod@@nestjs/microservices');
-    const grpcStreamMethodType = ts_poet_1.TypeNames.importedType('GrpcStreamMethod@@nestjs/microservices');
-    let decoratorFunction = ts_poet_1.FunctionSpec.createCallable().addParameter('constructor', ts_poet_1.TypeNames.typeVariable('Function'));
-    // add loop for applying @GrpcMethod decorators to functions
-    decoratorFunction = generateGrpcMethodDecoratorLoop(decoratorFunction, serviceDesc, 'grpcMethods', grpcMethods, grpcMethodType);
-    // add loop for applying @GrpcStreamMethod decorators to functions
-    decoratorFunction = generateGrpcMethodDecoratorLoop(decoratorFunction, serviceDesc, 'grpcStreamMethods', grpcStreamMethods, grpcStreamMethodType);
-    const body = ts_poet_1.CodeBlock.empty().add('return function %F', decoratorFunction);
-    grpcServiceDecorator = grpcServiceDecorator.addCodeBlock(body);
-    return grpcServiceDecorator;
-}
-function generateGrpcMethodDecoratorLoop(decoratorFunction, serviceDesc, grpcMethodsName, grpcMethods, grpcType) {
-    return decoratorFunction
-        .addStatement('const %L: string[] = [%L]', grpcMethodsName, grpcMethods)
-        .beginControlFlow('for (const method of %L)', grpcMethodsName)
-        .addStatement(`const %L: any = %L`, 'descriptor', `Reflect.getOwnPropertyDescriptor(constructor.prototype, method)`)
-        .addStatement(`%T('${serviceDesc.name}', method)(constructor.prototype[method], method, descriptor)`, grpcType)
-        .endControlFlow();
-}
-function detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options) {
-    const nameMatches = methodDesc.name.startsWith('Batch');
-    const inputType = typeMap.get(methodDesc.inputType);
-    const outputType = typeMap.get(methodDesc.outputType);
-    if (nameMatches && inputType && outputType) {
-        // TODO: This might be enums?
-        const inputTypeDesc = inputType[2];
-        const outputTypeDesc = outputType[2];
-        if (hasSingleRepeatedField(inputTypeDesc) && hasSingleRepeatedField(outputTypeDesc)) {
-            const singleMethodName = methodDesc.name.replace('Batch', 'Get');
-            const inputFieldName = inputTypeDesc.field[0].name;
-            const inputType = types_1.basicTypeName(typeMap, inputTypeDesc.field[0], options); // e.g. repeated string -> string
-            const outputFieldName = outputTypeDesc.field[0].name;
-            let outputType = types_1.basicTypeName(typeMap, outputTypeDesc.field[0], options); // e.g. repeated Entity -> Entity
-            const mapType = types_1.detectMapType(typeMap, outputTypeDesc, outputTypeDesc.field[0], options);
-            if (mapType) {
-                outputType = mapType.valueType;
-            }
-            const uniqueIdentifier = `${fileDesc.package}.${serviceDesc.name}.${methodDesc.name}`;
-            return {
-                methodDesc,
-                uniqueIdentifier,
-                singleMethodName,
-                inputFieldName,
-                inputType,
-                outputFieldName,
-                outputType,
-                mapType: !!mapType,
-            };
-        }
-    }
-    return undefined;
-}
-/** We've found a BatchXxx method, create a synthetic GetXxx method that calls it. */
-function generateBatchingRpcMethod(typeMap, batchMethod) {
-    const { methodDesc, singleMethodName, inputFieldName, inputType, outputFieldName, outputType, mapType, uniqueIdentifier, } = batchMethod;
-    // Create the `(keys) => ...` lambda we'll pass to the DataLoader constructor
-    let lambda = ts_poet_1.CodeBlock.lambda(inputFieldName) // e.g. keys
-        .addStatement('const request = { %L }', inputFieldName);
-    if (mapType) {
-        // If the return type is a map, lookup each key in the result
-        lambda = lambda
-            .beginLambda('return this.%L(ctx, request).then(res =>', methodDesc.name)
-            .addStatement('return %L.map(key => res.%L[key])', inputFieldName, outputFieldName)
-            .endLambda(')');
-    }
-    else {
-        // Otherwise assume they come back in order
-        lambda = lambda.addStatement('return this.%L(ctx, request).then(res => res.%L)', methodDesc.name, outputFieldName);
-    }
-    return ts_poet_1.FunctionSpec.create(singleMethodName)
-        .addParameter('ctx', 'Context')
-        .addParameter(utils_1.singular(inputFieldName), inputType)
-        .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
-        .addCode('return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n', dataloader, inputType, outputType, lambda, ts_poet_1.TypeNames.anyType('hash*object-hash'))
-        .addCode('%<});\n')
-        .addStatement('return dl.load(%L)', utils_1.singular(inputFieldName))
-        .returns(ts_poet_1.TypeNames.PROMISE.param(outputType));
-}
-/** We're not going to batch, but use DataLoader for per-request caching. */
-function generateCachingRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc) {
-    const inputType = requestType(typeMap, methodDesc, options);
-    const outputType = responseType(typeMap, methodDesc, options);
-    let lambda = ts_poet_1.CodeBlock.lambda('requests')
-        .beginLambda('const responses = requests.map(async request =>')
-        .addStatement('const data = %L.encode(request).finish()', inputType)
-        .addStatement('const response = await this.rpc.request(ctx, "%L.%L", %S, %L)', fileDesc.package, serviceDesc.name, methodDesc.name, 'data')
-        .addStatement('return %L.decode(new %T(response))', outputType, 'Reader@protobufjs/minimal')
-        .endLambda(')')
-        .addStatement('return Promise.all(responses)');
-    const uniqueIdentifier = `${fileDesc.package}.${serviceDesc.name}.${methodDesc.name}`;
-    return ts_poet_1.FunctionSpec.create(methodDesc.name)
-        .addParameter('ctx', 'Context')
-        .addParameter('request', inputType)
-        .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
-        .addCode('return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n', dataloader, inputType, outputType, lambda, ts_poet_1.TypeNames.anyType('hash*object-hash'))
-        .addCode('%<});\n')
-        .addStatement('return dl.load(request)')
-        .returns(ts_poet_1.TypeNames.PROMISE.param(outputType));
-}
-/**
- * Creates an `Rpc.request(service, method, data)` abstraction.
- *
- * This lets clients pass in their own request-promise-ish client.
- *
- * We don't export this because if a project uses multiple `*.proto` files,
- * we don't want our the barrel imports in `index.ts` to have multiple `Rpc`
- * types.
- */
-function generateRpcType(options) {
-    const data = ts_poet_1.TypeNames.anyType('Uint8Array');
-    let fn = ts_poet_1.FunctionSpec.create('request');
-    if (options.useContext) {
-        fn = fn.addParameter('ctx', 'Context');
-    }
-    fn = fn
-        .addParameter('service', ts_poet_1.TypeNames.STRING)
-        .addParameter('method', ts_poet_1.TypeNames.STRING)
-        .addParameter('data', data)
-        .returns(ts_poet_1.TypeNames.PROMISE.param(data));
-    let rpc = ts_poet_1.InterfaceSpec.create('Rpc');
-    if (options.useContext) {
-        rpc = rpc.addTypeVariable(ts_poet_1.TypeNames.typeVariable('Context'));
-    }
-    rpc = rpc.addFunction(fn);
-    return rpc;
-}
-function generateDataLoadersType() {
-    // TODO Maybe should be a generic `Context.get<T>(id, () => T): T` method
-    let fn = ts_poet_1.FunctionSpec.create('getDataLoader')
-        .addTypeVariable(ts_poet_1.TypeNames.typeVariable('T'))
-        .addParameter('identifier', ts_poet_1.TypeNames.STRING)
-        .addParameter('constructorFn', ts_poet_1.TypeNames.lambda2([], ts_poet_1.TypeNames.typeVariable('T')))
-        .returns(ts_poet_1.TypeNames.typeVariable('T'));
-    return ts_poet_1.InterfaceSpec.create('DataLoaders').addFunction(fn);
-}
-function requestType(typeMap, methodDesc, options) {
-    let typeName = types_1.messageToTypeName(typeMap, methodDesc.inputType, options);
-    if (methodDesc.clientStreaming) {
-        return ts_poet_1.TypeNames.anyType('Observable@rxjs').param(typeName);
-    }
-    return typeName;
-}
-function responseType(typeMap, methodDesc, options) {
-    return types_1.messageToTypeName(typeMap, methodDesc.outputType, options);
-}
-function responsePromise(typeMap, methodDesc, options) {
-    return ts_poet_1.TypeNames.PROMISE.param(responseType(typeMap, methodDesc, options));
-}
-function responseObservable(typeMap, methodDesc, options) {
-    return ts_poet_1.TypeNames.anyType('Observable@rxjs').param(responseType(typeMap, methodDesc, options));
-}
-function maybeSnakeToCamel(s, options) {
-    if (options.snakeToCamel) {
-        return s.replace(/(\_\w)/g, (m) => m[1].toUpperCase());
-    }
-    else {
-        return s;
-    }
-}
-function camelToSnake(s) {
-    return s
-        .replace(/[\w]([A-Z])/g, function (m) {
-        return m[0] + '_' + m[1];
-    })
-        .toUpperCase();
-}
-function capitalize(s) {
-    return s.substring(0, 1).toUpperCase() + s.substring(1);
-}
-function camelCase(s) {
-    return s.substring(0, 1).toLowerCase() + s.substring(1);
-}
+exports.contextTypeVar = ts_poet_1.TypeNames.typeVariable('Context', ts_poet_1.TypeNames.bound('DataLoaders'));
 function maybeCastToNumber(typeMap, messageDesc, field, variableName, options) {
     const { keyType } = types_1.detectMapType(typeMap, messageDesc, field, options);
     if (keyType === ts_poet_1.TypeNames.STRING) {
@@ -1228,4 +882,10 @@ function maybeCastToNumber(typeMap, messageDesc, field, variableName, options) {
     else {
         return `Number(${variableName})`;
     }
+}
+const builtInNames = ['Date'];
+/** Potentially suffixes `Message` to names to avoid conflicts, i.e. with `Date`. */
+function messageName(message) {
+    const { name } = message;
+    return builtInNames.includes(name) ? `${name}Message` : name;
 }

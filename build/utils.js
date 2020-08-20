@@ -48,9 +48,9 @@ function defaultOptions() {
         outputClientImpl: true,
         returnObservable: false,
         addGrpcMetadata: false,
+        addNestjsRestParameter: false,
         nestJs: false,
         env: main_1.EnvOption.BOTH,
-        asClass: false,
     };
 }
 exports.defaultOptions = defaultOptions;
@@ -90,6 +90,9 @@ function optionsFromParameter(parameter) {
         if (parameter.includes('outputClientImpl=false')) {
             options.outputClientImpl = false;
         }
+        if (parameter.includes('outputClientImpl=grpc-web')) {
+            options.outputClientImpl = 'grpc-web';
+        }
         if (parameter.includes('nestJs=true')) {
             options.nestJs = true;
             options.lowerCaseServiceMethods = true;
@@ -98,6 +101,9 @@ function optionsFromParameter(parameter) {
             options.outputClientImpl = false;
             if (parameter.includes('addGrpcMetadata=true')) {
                 options.addGrpcMetadata = true;
+            }
+            if (parameter.includes('addNestjsRestParameter=true')) {
+                options.addNestjsRestParameter = true;
             }
             if (parameter.includes('returnObservable=true')) {
                 options.returnObservable = true;
@@ -108,9 +114,6 @@ function optionsFromParameter(parameter) {
         }
         if (parameter.includes('env=browser')) {
             options.env = main_1.EnvOption.BROWSER;
-        }
-        if (parameter.includes('asClass=true')) {
-            options.asClass = true;
         }
     }
     return options;
