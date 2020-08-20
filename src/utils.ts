@@ -109,9 +109,9 @@ export function optionsFromParameter(parameter: string): Options {
       if (parameter.includes('addNestjsRestParameter=true')) {
         options.addNestjsRestParameter = true;
       }
-      if (parameter.includes('returnObservable=true')) {
-        options.returnObservable = true;
-      }
+    }
+    if (parameter.includes('returnObservable=true')) {
+      options.returnObservable = true;
     }
 
     if (parameter.includes('env=node')) {

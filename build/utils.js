@@ -105,9 +105,9 @@ function optionsFromParameter(parameter) {
             if (parameter.includes('addNestjsRestParameter=true')) {
                 options.addNestjsRestParameter = true;
             }
-            if (parameter.includes('returnObservable=true')) {
-                options.returnObservable = true;
-            }
+        }
+        if (parameter.includes('returnObservable=true')) {
+            options.returnObservable = true;
         }
         if (parameter.includes('env=node')) {
             options.env = main_1.EnvOption.NODE;
