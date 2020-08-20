@@ -29,12 +29,12 @@ function generateService(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
             methodDesc.name = case_1.camelCase(methodDesc.name);
         }
         let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-        if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-        }
         const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
         utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
         requestFn = requestFn.addParameter('request', types_1.requestType(typeMap, methodDesc, options));
+        if (options.useContext) {
+            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+        }
         // Use metadata as last argument for interface only configuration
         if (options.outputClientImpl === 'grpc-web') {
             requestFn = requestFn.addParameter('metadata?', 'grpc.Metadata');
