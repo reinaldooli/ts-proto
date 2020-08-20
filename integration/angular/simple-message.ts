@@ -9,6 +9,12 @@ const baseSimpleMessage: object = {
   numberField: 0,
 };
 
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
+
 export const SimpleMessage = {
   encode(message: SimpleMessage, writer: Writer = Writer.create()): Writer {
     writer.uint32(8).int32(message.numberField);

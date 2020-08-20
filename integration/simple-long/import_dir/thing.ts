@@ -8,7 +8,14 @@ export interface ImportedThing {
 }
 
 const baseImportedThing: object = {
+  createdAt: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 function fromJsonTimestamp(o: any): Date {
   if (o instanceof Date) {

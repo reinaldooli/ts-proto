@@ -109,6 +109,12 @@ const baseTimestamp: object = {
   nanos: 0,
 };
 
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
+
 function longToString(long: Long) {
   return long.toString();
 }

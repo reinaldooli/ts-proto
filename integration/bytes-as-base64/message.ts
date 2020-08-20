@@ -4,7 +4,14 @@ export interface Message {
 }
 
 const baseMessage: object = {
+  data: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export const Message = {
   fromJSON(object: any): Message {

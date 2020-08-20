@@ -4,6 +4,7 @@ import { google, simple as pbjs } from './pbjs';
 import PbSimpleWithWrappers = pbjs.SimpleWithWrappers;
 import PbStringValue = google.protobuf.StringValue;
 import PbInt32Value = google.protobuf.Int32Value;
+import PbBoolValue = google.protobuf.BoolValue;
 
 describe('simple value types', () => {
   it('can encode value wrappers as proto', () => {
@@ -64,12 +65,14 @@ describe('simple value types', () => {
     const s1 = PbSimpleWithWrappers.create({
       name: PbStringValue.create({ value: 'asdf' }),
       age: PbInt32Value.create({ value: 1 }),
+      enabled: PbBoolValue.create({ value: true }),
     });
     const s2 = SimpleWithWrappers.decode(Reader.create(PbSimpleWithWrappers.encode(s1).finish()));
     expect(s2).toMatchInlineSnapshot(`
       Object {
         "age": 1,
         "coins": Array [],
+        "enabled": true,
         "name": "asdf",
         "snacks": Array [],
       }
@@ -81,7 +84,10 @@ describe('simple value types', () => {
     const s2 = SimpleWithWrappers.decode(Reader.create(PbSimpleWithWrappers.encode(s1).finish()));
     expect(s2).toMatchInlineSnapshot(`
       Object {
+        "age": undefined,
         "coins": Array [],
+        "enabled": undefined,
+        "name": undefined,
         "snacks": Array [],
       }
     `);

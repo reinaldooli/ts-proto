@@ -128,36 +128,47 @@ export interface Numbers {
 }
 
 const baseSimple: object = {
-  name: "",
+  name: '',
   age: 0,
+  createdAt: undefined,
+  child: undefined,
   state: 0,
+  grandChildren: undefined,
   coins: 0,
-  snacks: "",
+  snacks: '',
   oldStates: 0,
+  thing: undefined,
 };
 
 const baseChild: object = {
-  name: "",
+  name: '',
   type: 0,
 };
 
 const baseNested: object = {
-  name: "",
+  name: '',
+  message: undefined,
   state: 0,
 };
 
 const baseNested_InnerMessage: object = {
-  name: "",
+  name: '',
+  deep: undefined,
 };
 
 const baseNested_InnerMessage_DeepMessage: object = {
-  name: "",
+  name: '',
 };
 
 const baseOneOfMessage: object = {
 };
 
 const baseSimpleWithWrappers: object = {
+  name: undefined,
+  age: undefined,
+  enabled: undefined,
+  coins: undefined,
+  snacks: undefined,
 };
 
 const baseEntity: object = {
@@ -165,15 +176,19 @@ const baseEntity: object = {
 };
 
 const baseSimpleWithMap: object = {
+  entitiesById: undefined,
+  nameLookup: undefined,
+  intLookup: undefined,
 };
 
 const baseSimpleWithMap_EntitiesByIdEntry: object = {
   key: 0,
+  value: undefined,
 };
 
 const baseSimpleWithMap_NameLookupEntry: object = {
-  key: "",
-  value: "",
+  key: '',
+  value: '',
 };
 
 const baseSimpleWithMap_IntLookupEntry: object = {
@@ -182,18 +197,20 @@ const baseSimpleWithMap_IntLookupEntry: object = {
 };
 
 const baseSimpleWithSnakeCaseMap: object = {
+  entitiesById: undefined,
 };
 
 const baseSimpleWithSnakeCaseMap_EntitiesByIdEntry: object = {
   key: 0,
+  value: undefined,
 };
 
 const basePingRequest: object = {
-  input: "",
+  input: '',
 };
 
 const basePingResponse: object = {
-  output: "",
+  output: '',
 };
 
 const baseNumbers: object = {
@@ -485,7 +502,7 @@ export const Simple = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.age !== undefined && object.age !== null) {
       message.age = Number(object.age);
@@ -543,7 +560,7 @@ export const Simple = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.age !== undefined && object.age !== null) {
       message.age = object.age;
@@ -594,7 +611,7 @@ export const Simple = {
   },
   toJSON(message: Simple): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.age = message.age || 0;
     obj.createdAt = message.createdAt !== undefined ? message.createdAt.toISOString() : null;
     obj.child = message.child ? Child.toJSON(message.child) : undefined;
@@ -610,7 +627,7 @@ export const Simple = {
       obj.coins = [];
     }
     if (message.snacks) {
-      obj.snacks = message.snacks.map(e => e || "");
+      obj.snacks = message.snacks.map(e => e || '');
     } else {
       obj.snacks = [];
     }
@@ -655,7 +672,7 @@ export const Child = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.type !== undefined && object.type !== null) {
       message.type = child_TypeFromJSON(object.type);
@@ -669,7 +686,7 @@ export const Child = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.type !== undefined && object.type !== null) {
       message.type = object.type;
@@ -680,7 +697,7 @@ export const Child = {
   },
   toJSON(message: Child): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.type = child_TypeToJSON(message.type);
     return obj;
   },
@@ -723,7 +740,7 @@ export const Nested = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.message !== undefined && object.message !== null) {
       message.message = Nested_InnerMessage.fromJSON(object.message);
@@ -742,7 +759,7 @@ export const Nested = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.message !== undefined && object.message !== null) {
       message.message = Nested_InnerMessage.fromPartial(object.message);
@@ -758,7 +775,7 @@ export const Nested = {
   },
   toJSON(message: Nested): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.message = message.message ? Nested_InnerMessage.toJSON(message.message) : undefined;
     obj.state = nested_InnerEnumToJSON(message.state);
     return obj;
@@ -798,7 +815,7 @@ export const Nested_InnerMessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.deep !== undefined && object.deep !== null) {
       message.deep = Nested_InnerMessage_DeepMessage.fromJSON(object.deep);
@@ -812,7 +829,7 @@ export const Nested_InnerMessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.deep !== undefined && object.deep !== null) {
       message.deep = Nested_InnerMessage_DeepMessage.fromPartial(object.deep);
@@ -823,7 +840,7 @@ export const Nested_InnerMessage = {
   },
   toJSON(message: Nested_InnerMessage): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.deep = message.deep ? Nested_InnerMessage_DeepMessage.toJSON(message.deep) : undefined;
     return obj;
   },
@@ -856,7 +873,7 @@ export const Nested_InnerMessage_DeepMessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
@@ -865,23 +882,23 @@ export const Nested_InnerMessage_DeepMessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
   toJSON(message: Nested_InnerMessage_DeepMessage): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     return obj;
   },
 };
 
 export const OneOfMessage = {
   encode(message: OneOfMessage, writer: Writer = Writer.create()): Writer {
-    if (message.first !== undefined && message.first !== "") {
+    if (message.first !== undefined && message.first !== '') {
       writer.uint32(10).string(message.first);
     }
-    if (message.last !== undefined && message.last !== "") {
+    if (message.last !== undefined && message.last !== '') {
       writer.uint32(18).string(message.last);
     }
     return writer;
@@ -1337,12 +1354,12 @@ export const SimpleWithMap_NameLookupEntry = {
     if (object.key !== undefined && object.key !== null) {
       message.key = String(object.key);
     } else {
-      message.key = "";
+      message.key = '';
     }
     if (object.value !== undefined && object.value !== null) {
       message.value = String(object.value);
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
@@ -1351,19 +1368,19 @@ export const SimpleWithMap_NameLookupEntry = {
     if (object.key !== undefined && object.key !== null) {
       message.key = object.key;
     } else {
-      message.key = "";
+      message.key = '';
     }
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
   toJSON(message: SimpleWithMap_NameLookupEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || "";
-    obj.value = message.value || "";
+    obj.key = message.key || '';
+    obj.value = message.value || '';
     return obj;
   },
 };
@@ -1583,7 +1600,7 @@ export const PingRequest = {
     if (object.input !== undefined && object.input !== null) {
       message.input = String(object.input);
     } else {
-      message.input = "";
+      message.input = '';
     }
     return message;
   },
@@ -1592,13 +1609,13 @@ export const PingRequest = {
     if (object.input !== undefined && object.input !== null) {
       message.input = object.input;
     } else {
-      message.input = "";
+      message.input = '';
     }
     return message;
   },
   toJSON(message: PingRequest): unknown {
     const obj: any = {};
-    obj.input = message.input || "";
+    obj.input = message.input || '';
     return obj;
   },
 };
@@ -1630,7 +1647,7 @@ export const PingResponse = {
     if (object.output !== undefined && object.output !== null) {
       message.output = String(object.output);
     } else {
-      message.output = "";
+      message.output = '';
     }
     return message;
   },
@@ -1639,13 +1656,13 @@ export const PingResponse = {
     if (object.output !== undefined && object.output !== null) {
       message.output = object.output;
     } else {
-      message.output = "";
+      message.output = '';
     }
     return message;
   },
   toJSON(message: PingResponse): unknown {
     const obj: any = {};
-    obj.output = message.output || "";
+    obj.output = message.output || '';
     return obj;
   },
 };

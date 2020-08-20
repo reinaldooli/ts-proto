@@ -139,11 +139,18 @@ const baseBoolValue: object = {
 };
 
 const baseStringValue: object = {
-  value: "",
+  value: '',
 };
 
 const baseBytesValue: object = {
+  value: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export const DoubleValue = {
   encode(message: DoubleValue, writer: Writer = Writer.create()): Writer {
@@ -501,7 +508,7 @@ export const StringValue = {
     if (object.value !== undefined && object.value !== null) {
       message.value = String(object.value);
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
@@ -510,13 +517,13 @@ export const StringValue = {
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
   toJSON(message: StringValue): unknown {
     const obj: any = {};
-    obj.value = message.value || "";
+    obj.value = message.value || '';
     return obj;
   },
 };

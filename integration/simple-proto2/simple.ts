@@ -9,6 +9,12 @@ const baseIssue56: object = {
   test: 1,
 };
 
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
+
 export enum EnumWithoutZero {
   A = 1,
   B = 2,

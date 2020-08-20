@@ -1,7 +1,6 @@
 import * as Long from 'long';
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface Tile {
   layers: Tile_Layer[];
 }
@@ -33,10 +32,11 @@ export interface Tile_Layer {
 }
 
 const baseTile: object = {
+  layers: undefined,
 };
 
 const baseTile_Value: object = {
-  stringValue: "",
+  stringValue: '',
   floatValue: 0,
   doubleValue: 0,
   intValue: 0,
@@ -54,14 +54,20 @@ const baseTile_Feature: object = {
 
 const baseTile_Layer: object = {
   version: 0,
-  name: "",
-  keys: "",
+  name: '',
+  features: undefined,
+  keys: '',
+  values: undefined,
   extent: 0,
 };
 
+interface Rpc {
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+}
+
 function longToNumber(long: Long) {
   if (long.gt(Number.MAX_SAFE_INTEGER)) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
   }
   return long.toNumber();
 }
@@ -77,19 +83,19 @@ export enum Tile_GeomType {
 export function tile_GeomTypeFromJSON(object: any): Tile_GeomType {
   switch (object) {
     case 0:
-    case "UNKNOWN":
+    case 'UNKNOWN':
       return Tile_GeomType.UNKNOWN;
     case 1:
-    case "POINT":
+    case 'POINT':
       return Tile_GeomType.POINT;
     case 2:
-    case "LINESTRING":
+    case 'LINESTRING':
       return Tile_GeomType.LINESTRING;
     case 3:
-    case "POLYGON":
+    case 'POLYGON':
       return Tile_GeomType.POLYGON;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return Tile_GeomType.UNRECOGNIZED;
   }
@@ -98,15 +104,15 @@ export function tile_GeomTypeFromJSON(object: any): Tile_GeomType {
 export function tile_GeomTypeToJSON(object: Tile_GeomType): string {
   switch (object) {
     case Tile_GeomType.UNKNOWN:
-      return "UNKNOWN";
+      return 'UNKNOWN';
     case Tile_GeomType.POINT:
-      return "POINT";
+      return 'POINT';
     case Tile_GeomType.LINESTRING:
-      return "LINESTRING";
+      return 'LINESTRING';
     case Tile_GeomType.POLYGON:
-      return "POLYGON";
+      return 'POLYGON';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -158,7 +164,7 @@ export const Tile = {
   toJSON(message: Tile): unknown {
     const obj: any = {};
     if (message.layers) {
-      obj.layers = message.layers.map(e => e ? Tile_Layer.toJSON(e) : undefined);
+      obj.layers = message.layers.map((e) => (e ? Tile_Layer.toJSON(e) : undefined));
     } else {
       obj.layers = [];
     }
@@ -217,7 +223,7 @@ export const Tile_Value = {
     if (object.stringValue !== undefined && object.stringValue !== null) {
       message.stringValue = String(object.stringValue);
     } else {
-      message.stringValue = "";
+      message.stringValue = '';
     }
     if (object.floatValue !== undefined && object.floatValue !== null) {
       message.floatValue = Number(object.floatValue);
@@ -256,7 +262,7 @@ export const Tile_Value = {
     if (object.stringValue !== undefined && object.stringValue !== null) {
       message.stringValue = object.stringValue;
     } else {
-      message.stringValue = "";
+      message.stringValue = '';
     }
     if (object.floatValue !== undefined && object.floatValue !== null) {
       message.floatValue = object.floatValue;
@@ -292,7 +298,7 @@ export const Tile_Value = {
   },
   toJSON(message: Tile_Value): unknown {
     const obj: any = {};
-    obj.stringValue = message.stringValue || "";
+    obj.stringValue = message.stringValue || '';
     obj.floatValue = message.floatValue || 0;
     obj.doubleValue = message.doubleValue || 0;
     obj.intValue = message.intValue || 0;
@@ -417,13 +423,13 @@ export const Tile_Feature = {
     const obj: any = {};
     obj.id = message.id || 0;
     if (message.tags) {
-      obj.tags = message.tags.map(e => e || 0);
+      obj.tags = message.tags.map((e) => e || 0);
     } else {
       obj.tags = [];
     }
     obj.type = tile_GeomTypeToJSON(message.type);
     if (message.geometry) {
-      obj.geometry = message.geometry.map(e => e || 0);
+      obj.geometry = message.geometry.map((e) => e || 0);
     } else {
       obj.geometry = [];
     }
@@ -495,7 +501,7 @@ export const Tile_Layer = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.features !== undefined && object.features !== null) {
       for (const e of object.features) {
@@ -532,7 +538,7 @@ export const Tile_Layer = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.features !== undefined && object.features !== null) {
       for (const e of object.features) {
@@ -559,19 +565,19 @@ export const Tile_Layer = {
   toJSON(message: Tile_Layer): unknown {
     const obj: any = {};
     obj.version = message.version || 0;
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     if (message.features) {
-      obj.features = message.features.map(e => e ? Tile_Feature.toJSON(e) : undefined);
+      obj.features = message.features.map((e) => (e ? Tile_Feature.toJSON(e) : undefined));
     } else {
       obj.features = [];
     }
     if (message.keys) {
-      obj.keys = message.keys.map(e => e || "");
+      obj.keys = message.keys.map((e) => e || '');
     } else {
       obj.keys = [];
     }
     if (message.values) {
-      obj.values = message.values.map(e => e ? Tile_Value.toJSON(e) : undefined);
+      obj.values = message.values.map((e) => (e ? Tile_Value.toJSON(e) : undefined));
     } else {
       obj.values = [];
     }

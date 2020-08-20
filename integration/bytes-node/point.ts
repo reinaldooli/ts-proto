@@ -6,7 +6,14 @@ export interface Point {
 }
 
 const basePoint: object = {
+  data: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export const Point = {
   encode(message: Point, writer: Writer = Writer.create()): Writer {

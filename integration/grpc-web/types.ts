@@ -1,3 +1,4 @@
+import { grpc } from '@improbable-eng/grpc-web';
 import * as Long from 'long';
 import { Writer, Reader } from 'protobufjs/minimal';
 
@@ -71,7 +72,7 @@ const baseEmpty: object = {
 };
 
 const baseOptString: object = {
-  val: "",
+  val: '',
 };
 
 const baseOptInt64: object = {
@@ -83,11 +84,55 @@ const baseOptBool: object = {
 };
 
 const baseIPNet: object = {
+  ip: undefined,
+  mask: undefined,
 };
 
 const baseID: object = {
-  id: "",
+  id: '',
 };
+
+interface Rpc {
+
+  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, request: any, metadata: grpc.Metadata | undefined): Promise<any>;
+
+}
+
+export class GrpcWebImpl implements Rpc {
+
+  private host: string;
+
+  private options: { transport?: grpc.TransportFactory, debug?: boolean };
+
+  constructor(host: string, options: { transport?: grpc.TransportFactory, debug?: boolean }) {
+    this.host = host;
+    this.options = options;
+  }
+
+  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, _request: any, metadata: grpc.Metadata | undefined): Promise<any> {
+    const request = { ..._request, ...methodDesc.requestType };
+    return new Promise((resolve, reject) => {
+      grpc.unary(methodDesc, {
+        request,
+        host: this.host,
+        metadata: metadata,
+        transport: this.options.transport,
+        debug: this.options.debug,
+        onEnd: function (response) {
+          if (response.status === grpc.Code.OK) {
+            resolve(response.message);
+          } else {
+            const err = new Error(response.statusMessage) as any;
+            err.code = response.status;
+            err.metadata = response.trailers;
+            reject(err);
+          }
+        },
+      });
+    });
+  }
+
+}
 
 function longToNumber(long: Long) {
   if (long.gt(Number.MAX_SAFE_INTEGER)) {
@@ -264,7 +309,7 @@ export const OptString = {
     if (object.val !== undefined && object.val !== null) {
       message.val = String(object.val);
     } else {
-      message.val = "";
+      message.val = '';
     }
     return message;
   },
@@ -273,13 +318,13 @@ export const OptString = {
     if (object.val !== undefined && object.val !== null) {
       message.val = object.val;
     } else {
-      message.val = "";
+      message.val = '';
     }
     return message;
   },
   toJSON(message: OptString): unknown {
     const obj: any = {};
-    obj.val = message.val || "";
+    obj.val = message.val || '';
     return obj;
   },
 };
@@ -459,7 +504,7 @@ export const ID = {
     if (object.id !== undefined && object.id !== null) {
       message.id = String(object.id);
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
@@ -468,16 +513,19 @@ export const ID = {
     if (object.id !== undefined && object.id !== null) {
       message.id = object.id;
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
   toJSON(message: ID): unknown {
     const obj: any = {};
-    obj.id = message.id || "";
+    obj.id = message.id || '';
     return obj;
   },
 };
+
+import UnaryMethodDefinition = grpc.UnaryMethodDefinition;
+type UnaryMethodDefinitionish = UnaryMethodDefinition<any, any>;
 
 interface WindowBase64 {
   atob(b64: string): string;

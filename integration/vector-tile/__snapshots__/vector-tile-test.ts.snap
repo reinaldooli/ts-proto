@@ -36,10 +36,11 @@ export interface Tile_Layer {
 }
 
 const baseTile: object = {
+  layers: undefined,
 };
 
 const baseTile_Value: object = {
-  stringValue: \\"\\",
+  stringValue: '',
   floatValue: 0,
   doubleValue: 0,
   intValue: 0,
@@ -57,10 +58,18 @@ const baseTile_Feature: object = {
 
 const baseTile_Layer: object = {
   version: 0,
-  name: \\"\\",
-  keys: \\"\\",
+  name: '',
+  features: undefined,
+  keys: '',
+  values: undefined,
   extent: 0,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 function longToNumber(long: Long) {
   if (long.gt(Number.MAX_SAFE_INTEGER)) {
@@ -220,7 +229,7 @@ export const Tile_Value = {
     if (object.stringValue !== undefined && object.stringValue !== null) {
       message.stringValue = String(object.stringValue);
     } else {
-      message.stringValue = \\"\\";
+      message.stringValue = '';
     }
     if (object.floatValue !== undefined && object.floatValue !== null) {
       message.floatValue = Number(object.floatValue);
@@ -259,7 +268,7 @@ export const Tile_Value = {
     if (object.stringValue !== undefined && object.stringValue !== null) {
       message.stringValue = object.stringValue;
     } else {
-      message.stringValue = \\"\\";
+      message.stringValue = '';
     }
     if (object.floatValue !== undefined && object.floatValue !== null) {
       message.floatValue = object.floatValue;
@@ -295,7 +304,7 @@ export const Tile_Value = {
   },
   toJSON(message: Tile_Value): unknown {
     const obj: any = {};
-    obj.stringValue = message.stringValue || \\"\\";
+    obj.stringValue = message.stringValue || '';
     obj.floatValue = message.floatValue || 0;
     obj.doubleValue = message.doubleValue || 0;
     obj.intValue = message.intValue || 0;
@@ -498,7 +507,7 @@ export const Tile_Layer = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = \\"\\";
+      message.name = '';
     }
     if (object.features !== undefined && object.features !== null) {
       for (const e of object.features) {
@@ -535,7 +544,7 @@ export const Tile_Layer = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = \\"\\";
+      message.name = '';
     }
     if (object.features !== undefined && object.features !== null) {
       for (const e of object.features) {
@@ -562,14 +571,14 @@ export const Tile_Layer = {
   toJSON(message: Tile_Layer): unknown {
     const obj: any = {};
     obj.version = message.version || 0;
-    obj.name = message.name || \\"\\";
+    obj.name = message.name || '';
     if (message.features) {
       obj.features = message.features.map(e => e ? Tile_Feature.toJSON(e) : undefined);
     } else {
       obj.features = [];
     }
     if (message.keys) {
-      obj.keys = message.keys.map(e => e || \\"\\");
+      obj.keys = message.keys.map(e => e || '');
     } else {
       obj.keys = [];
     }

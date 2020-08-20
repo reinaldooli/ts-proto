@@ -109,6 +109,12 @@ const baseTimestamp: object = {
   nanos: 0,
 };
 
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
+
 export const Timestamp = {
   encode(message: Timestamp, writer: Writer = Writer.create()): Writer {
     writer.uint32(8).int64(message.seconds);

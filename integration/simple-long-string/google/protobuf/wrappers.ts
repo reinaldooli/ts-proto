@@ -123,7 +123,7 @@ const baseInt64Value: object = {
 };
 
 const baseUInt64Value: object = {
-  value: "0",
+  value: '0',
 };
 
 const baseInt32Value: object = {
@@ -139,11 +139,18 @@ const baseBoolValue: object = {
 };
 
 const baseStringValue: object = {
-  value: "",
+  value: '',
 };
 
 const baseBytesValue: object = {
+  value: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 function longToString(long: Long) {
   return long.toString();
@@ -317,7 +324,7 @@ export const UInt64Value = {
     if (object.value !== undefined && object.value !== null) {
       message.value = String(object.value);
     } else {
-      message.value = "0";
+      message.value = '0';
     }
     return message;
   },
@@ -326,13 +333,13 @@ export const UInt64Value = {
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
     } else {
-      message.value = "0";
+      message.value = '0';
     }
     return message;
   },
   toJSON(message: UInt64Value): unknown {
     const obj: any = {};
-    obj.value = message.value || "0";
+    obj.value = message.value || '0';
     return obj;
   },
 };
@@ -505,7 +512,7 @@ export const StringValue = {
     if (object.value !== undefined && object.value !== null) {
       message.value = String(object.value);
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
@@ -514,13 +521,13 @@ export const StringValue = {
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
     } else {
-      message.value = "";
+      message.value = '';
     }
     return message;
   },
   toJSON(message: StringValue): unknown {
     const obj: any = {};
-    obj.value = message.value || "";
+    obj.value = message.value || '';
     return obj;
   },
 };

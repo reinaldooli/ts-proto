@@ -14,6 +14,12 @@ const baseBaz: object = {
 const baseFooBar: object = {
 };
 
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
+
 export const Baz = {
   encode(message: Baz, writer: Writer = Writer.create()): Writer {
     if (message.foo !== undefined && message.foo !== undefined) {

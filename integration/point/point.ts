@@ -17,7 +17,15 @@ const basePoint: object = {
 };
 
 const baseArea: object = {
+  nw: undefined,
+  se: undefined,
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export const Point = {
   encode(message: Point, writer: Writer = Writer.create()): Writer {

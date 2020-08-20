@@ -32,13 +32,19 @@ export interface PleaseChoose_Submessage {
 }
 
 const basePleaseChoose: object = {
-  name: "",
+  name: '',
   age: 0,
 };
 
 const basePleaseChoose_Submessage: object = {
-  name: "",
+  name: '',
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export enum PleaseChoose_StateEnum {
   UNKNOWN = 0,
@@ -84,7 +90,7 @@ export const PleaseChoose = {
     if (message.aNumber !== undefined && message.aNumber !== 0) {
       writer.uint32(17).double(message.aNumber);
     }
-    if (message.aString !== undefined && message.aString !== "") {
+    if (message.aString !== undefined && message.aString !== '') {
       writer.uint32(26).string(message.aString);
     }
     if (message.aMessage !== undefined && message.aMessage !== undefined) {
@@ -100,13 +106,13 @@ export const PleaseChoose = {
       writer.uint32(88).int32(message.anEnum);
     }
     writer.uint32(40).uint32(message.age);
-    if (message.either !== undefined && message.either !== "") {
+    if (message.either !== undefined && message.either !== '') {
       writer.uint32(58).string(message.either);
     }
-    if (message.or !== undefined && message.or !== "") {
+    if (message.or !== undefined && message.or !== '') {
       writer.uint32(66).string(message.or);
     }
-    if (message.thirdOption !== undefined && message.thirdOption !== "") {
+    if (message.thirdOption !== undefined && message.thirdOption !== '') {
       writer.uint32(74).string(message.thirdOption);
     }
     return writer;
@@ -163,7 +169,7 @@ export const PleaseChoose = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.aNumber !== undefined && object.aNumber !== null) {
       message.aNumber = Number(object.aNumber);
@@ -220,7 +226,7 @@ export const PleaseChoose = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     if (object.aNumber !== undefined && object.aNumber !== null) {
       message.aNumber = object.aNumber;
@@ -274,7 +280,7 @@ export const PleaseChoose = {
   },
   toJSON(message: PleaseChoose): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.aNumber = message.aNumber || undefined;
     obj.aString = message.aString || undefined;
     obj.aMessage = message.aMessage ? PleaseChoose_Submessage.toJSON(message.aMessage) : undefined;
@@ -316,7 +322,7 @@ export const PleaseChoose_Submessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
@@ -325,13 +331,13 @@ export const PleaseChoose_Submessage = {
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
   toJSON(message: PleaseChoose_Submessage): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     return obj;
   },
 };

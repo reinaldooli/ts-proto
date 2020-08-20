@@ -45,40 +45,44 @@ export interface Entity {
 }
 
 const baseBatchQueryRequest: object = {
-  ids: "",
+  ids: '',
 };
 
 const baseBatchQueryResponse: object = {
+  entities: undefined,
 };
 
 const baseBatchMapQueryRequest: object = {
-  ids: "",
+  ids: '',
 };
 
 const baseBatchMapQueryResponse: object = {
+  entities: undefined,
 };
 
 const baseBatchMapQueryResponse_EntitiesEntry: object = {
-  key: "",
+  key: '',
+  value: undefined,
 };
 
 const baseGetOnlyMethodRequest: object = {
-  id: "",
+  id: '',
 };
 
 const baseGetOnlyMethodResponse: object = {
+  entity: undefined,
 };
 
 const baseWriteMethodRequest: object = {
-  id: "",
+  id: '',
 };
 
 const baseWriteMethodResponse: object = {
 };
 
 const baseEntity: object = {
-  id: "",
-  name: "",
+  id: '',
+  name: '',
 };
 
 export interface EntityService<Context extends DataLoaders> {
@@ -227,7 +231,7 @@ export const BatchQueryRequest = {
   toJSON(message: BatchQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || "");
+      obj.ids = message.ids.map(e => e || '');
     } else {
       obj.ids = [];
     }
@@ -339,7 +343,7 @@ export const BatchMapQueryRequest = {
   toJSON(message: BatchMapQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || "");
+      obj.ids = message.ids.map(e => e || '');
     } else {
       obj.ids = [];
     }
@@ -442,7 +446,7 @@ export const BatchMapQueryResponse_EntitiesEntry = {
     if (object.key !== undefined && object.key !== null) {
       message.key = String(object.key);
     } else {
-      message.key = "";
+      message.key = '';
     }
     if (object.value !== undefined && object.value !== null) {
       message.value = Entity.fromJSON(object.value);
@@ -456,7 +460,7 @@ export const BatchMapQueryResponse_EntitiesEntry = {
     if (object.key !== undefined && object.key !== null) {
       message.key = object.key;
     } else {
-      message.key = "";
+      message.key = '';
     }
     if (object.value !== undefined && object.value !== null) {
       message.value = Entity.fromPartial(object.value);
@@ -467,7 +471,7 @@ export const BatchMapQueryResponse_EntitiesEntry = {
   },
   toJSON(message: BatchMapQueryResponse_EntitiesEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || "";
+    obj.key = message.key || '';
     obj.value = message.value ? Entity.toJSON(message.value) : undefined;
     return obj;
   },
@@ -500,7 +504,7 @@ export const GetOnlyMethodRequest = {
     if (object.id !== undefined && object.id !== null) {
       message.id = String(object.id);
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
@@ -509,13 +513,13 @@ export const GetOnlyMethodRequest = {
     if (object.id !== undefined && object.id !== null) {
       message.id = object.id;
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
   toJSON(message: GetOnlyMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || "";
+    obj.id = message.id || '';
     return obj;
   },
 };
@@ -596,7 +600,7 @@ export const WriteMethodRequest = {
     if (object.id !== undefined && object.id !== null) {
       message.id = String(object.id);
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
@@ -605,13 +609,13 @@ export const WriteMethodRequest = {
     if (object.id !== undefined && object.id !== null) {
       message.id = object.id;
     } else {
-      message.id = "";
+      message.id = '';
     }
     return message;
   },
   toJSON(message: WriteMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || "";
+    obj.id = message.id || '';
     return obj;
   },
 };
@@ -679,12 +683,12 @@ export const Entity = {
     if (object.id !== undefined && object.id !== null) {
       message.id = String(object.id);
     } else {
-      message.id = "";
+      message.id = '';
     }
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
@@ -693,19 +697,19 @@ export const Entity = {
     if (object.id !== undefined && object.id !== null) {
       message.id = object.id;
     } else {
-      message.id = "";
+      message.id = '';
     }
     if (object.name !== undefined && object.name !== null) {
       message.name = object.name;
     } else {
-      message.name = "";
+      message.name = '';
     }
     return message;
   },
   toJSON(message: Entity): unknown {
     const obj: any = {};
-    obj.id = message.id || "";
-    obj.name = message.name || "";
+    obj.id = message.id || '';
+    obj.name = message.name || '';
     return obj;
   },
 };

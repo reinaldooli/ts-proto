@@ -44,38 +44,43 @@ export interface DashAPICredsDeleteReq {
 }
 
 const baseDashFlash: object = {
-  msg: "",
+  msg: '',
   type: 0,
 };
 
 const baseDashUserSettingsState: object = {
-  email: "",
+  email: '',
+  urls: undefined,
+  flashes: undefined,
 };
 
 const baseDashUserSettingsState_URLs: object = {
-  connectGoogle: "",
-  connectGithub: "",
+  connectGoogle: '',
+  connectGithub: '',
 };
 
 const baseDashCred: object = {
-  description: "",
-  metadata: "",
-  token: "",
+  description: '',
+  metadata: '',
+  token: '',
+  id: undefined,
 };
 
 const baseDashAPICredsCreateReq: object = {
-  description: "",
-  metadata: "",
+  description: '',
+  metadata: '',
 };
 
 const baseDashAPICredsUpdateReq: object = {
-  credSid: "",
-  description: "",
-  metadata: "",
+  credSid: '',
+  description: '',
+  metadata: '',
+  id: undefined,
 };
 
 const baseDashAPICredsDeleteReq: object = {
-  credSid: "",
+  credSid: '',
+  id: undefined,
 };
 
 export interface DashState {
@@ -252,7 +257,7 @@ export const DashFlash = {
     if (object.msg !== undefined && object.msg !== null) {
       message.msg = String(object.msg);
     } else {
-      message.msg = "";
+      message.msg = '';
     }
     if (object.type !== undefined && object.type !== null) {
       message.type = dashFlash_TypeFromJSON(object.type);
@@ -266,7 +271,7 @@ export const DashFlash = {
     if (object.msg !== undefined && object.msg !== null) {
       message.msg = object.msg;
     } else {
-      message.msg = "";
+      message.msg = '';
     }
     if (object.type !== undefined && object.type !== null) {
       message.type = object.type;
@@ -277,7 +282,7 @@ export const DashFlash = {
   },
   toJSON(message: DashFlash): unknown {
     const obj: any = {};
-    obj.msg = message.msg || "";
+    obj.msg = message.msg || '';
     obj.type = dashFlash_TypeToJSON(message.type);
     return obj;
   },
@@ -324,7 +329,7 @@ export const DashUserSettingsState = {
     if (object.email !== undefined && object.email !== null) {
       message.email = String(object.email);
     } else {
-      message.email = "";
+      message.email = '';
     }
     if (object.urls !== undefined && object.urls !== null) {
       message.urls = DashUserSettingsState_URLs.fromJSON(object.urls);
@@ -344,7 +349,7 @@ export const DashUserSettingsState = {
     if (object.email !== undefined && object.email !== null) {
       message.email = object.email;
     } else {
-      message.email = "";
+      message.email = '';
     }
     if (object.urls !== undefined && object.urls !== null) {
       message.urls = DashUserSettingsState_URLs.fromPartial(object.urls);
@@ -360,7 +365,7 @@ export const DashUserSettingsState = {
   },
   toJSON(message: DashUserSettingsState): unknown {
     const obj: any = {};
-    obj.email = message.email || "";
+    obj.email = message.email || '';
     obj.urls = message.urls ? DashUserSettingsState_URLs.toJSON(message.urls) : undefined;
     if (message.flashes) {
       obj.flashes = message.flashes.map(e => e ? DashFlash.toJSON(e) : undefined);
@@ -402,12 +407,12 @@ export const DashUserSettingsState_URLs = {
     if (object.connectGoogle !== undefined && object.connectGoogle !== null) {
       message.connectGoogle = String(object.connectGoogle);
     } else {
-      message.connectGoogle = "";
+      message.connectGoogle = '';
     }
     if (object.connectGithub !== undefined && object.connectGithub !== null) {
       message.connectGithub = String(object.connectGithub);
     } else {
-      message.connectGithub = "";
+      message.connectGithub = '';
     }
     return message;
   },
@@ -416,19 +421,19 @@ export const DashUserSettingsState_URLs = {
     if (object.connectGoogle !== undefined && object.connectGoogle !== null) {
       message.connectGoogle = object.connectGoogle;
     } else {
-      message.connectGoogle = "";
+      message.connectGoogle = '';
     }
     if (object.connectGithub !== undefined && object.connectGithub !== null) {
       message.connectGithub = object.connectGithub;
     } else {
-      message.connectGithub = "";
+      message.connectGithub = '';
     }
     return message;
   },
   toJSON(message: DashUserSettingsState_URLs): unknown {
     const obj: any = {};
-    obj.connectGoogle = message.connectGoogle || "";
-    obj.connectGithub = message.connectGithub || "";
+    obj.connectGoogle = message.connectGoogle || '';
+    obj.connectGithub = message.connectGithub || '';
     return obj;
   },
 };
@@ -474,17 +479,17 @@ export const DashCred = {
     if (object.description !== undefined && object.description !== null) {
       message.description = String(object.description);
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = String(object.metadata);
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     if (object.token !== undefined && object.token !== null) {
       message.token = String(object.token);
     } else {
-      message.token = "";
+      message.token = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromJSON(object.id);
@@ -498,17 +503,17 @@ export const DashCred = {
     if (object.description !== undefined && object.description !== null) {
       message.description = object.description;
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = object.metadata;
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     if (object.token !== undefined && object.token !== null) {
       message.token = object.token;
     } else {
-      message.token = "";
+      message.token = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromPartial(object.id);
@@ -519,9 +524,9 @@ export const DashCred = {
   },
   toJSON(message: DashCred): unknown {
     const obj: any = {};
-    obj.description = message.description || "";
-    obj.metadata = message.metadata || "";
-    obj.token = message.token || "";
+    obj.description = message.description || '';
+    obj.metadata = message.metadata || '';
+    obj.token = message.token || '';
     obj.id = message.id ? ID.toJSON(message.id) : undefined;
     return obj;
   },
@@ -558,12 +563,12 @@ export const DashAPICredsCreateReq = {
     if (object.description !== undefined && object.description !== null) {
       message.description = String(object.description);
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = String(object.metadata);
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     return message;
   },
@@ -572,19 +577,19 @@ export const DashAPICredsCreateReq = {
     if (object.description !== undefined && object.description !== null) {
       message.description = object.description;
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = object.metadata;
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     return message;
   },
   toJSON(message: DashAPICredsCreateReq): unknown {
     const obj: any = {};
-    obj.description = message.description || "";
-    obj.metadata = message.metadata || "";
+    obj.description = message.description || '';
+    obj.metadata = message.metadata || '';
     return obj;
   },
 };
@@ -630,17 +635,17 @@ export const DashAPICredsUpdateReq = {
     if (object.credSid !== undefined && object.credSid !== null) {
       message.credSid = String(object.credSid);
     } else {
-      message.credSid = "";
+      message.credSid = '';
     }
     if (object.description !== undefined && object.description !== null) {
       message.description = String(object.description);
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = String(object.metadata);
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromJSON(object.id);
@@ -654,17 +659,17 @@ export const DashAPICredsUpdateReq = {
     if (object.credSid !== undefined && object.credSid !== null) {
       message.credSid = object.credSid;
     } else {
-      message.credSid = "";
+      message.credSid = '';
     }
     if (object.description !== undefined && object.description !== null) {
       message.description = object.description;
     } else {
-      message.description = "";
+      message.description = '';
     }
     if (object.metadata !== undefined && object.metadata !== null) {
       message.metadata = object.metadata;
     } else {
-      message.metadata = "";
+      message.metadata = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromPartial(object.id);
@@ -675,9 +680,9 @@ export const DashAPICredsUpdateReq = {
   },
   toJSON(message: DashAPICredsUpdateReq): unknown {
     const obj: any = {};
-    obj.credSid = message.credSid || "";
-    obj.description = message.description || "";
-    obj.metadata = message.metadata || "";
+    obj.credSid = message.credSid || '';
+    obj.description = message.description || '';
+    obj.metadata = message.metadata || '';
     obj.id = message.id ? ID.toJSON(message.id) : undefined;
     return obj;
   },
@@ -716,7 +721,7 @@ export const DashAPICredsDeleteReq = {
     if (object.credSid !== undefined && object.credSid !== null) {
       message.credSid = String(object.credSid);
     } else {
-      message.credSid = "";
+      message.credSid = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromJSON(object.id);
@@ -730,7 +735,7 @@ export const DashAPICredsDeleteReq = {
     if (object.credSid !== undefined && object.credSid !== null) {
       message.credSid = object.credSid;
     } else {
-      message.credSid = "";
+      message.credSid = '';
     }
     if (object.id !== undefined && object.id !== null) {
       message.id = ID.fromPartial(object.id);
@@ -741,7 +746,7 @@ export const DashAPICredsDeleteReq = {
   },
   toJSON(message: DashAPICredsDeleteReq): unknown {
     const obj: any = {};
-    obj.credSid = message.credSid || "";
+    obj.credSid = message.credSid || '';
     obj.id = message.id ? ID.toJSON(message.id) : undefined;
     return obj;
   },

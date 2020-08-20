@@ -29,13 +29,19 @@ export interface PleaseChoose_Submessage {
 }
 
 const basePleaseChoose: object = {
-  name: "",
+  name: '',
   age: 0,
 };
 
 const basePleaseChoose_Submessage: object = {
-  name: "",
+  name: '',
 };
+
+interface Rpc {
+
+  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+
+}
 
 export enum PleaseChoose_StateEnum {
   UNKNOWN = 0,
@@ -81,7 +87,7 @@ export const PleaseChoose = {
     if (message.choice?.$case === 'aNumber' && message.choice?.aNumber !== 0) {
       writer.uint32(17).double(message.choice.aNumber);
     }
-    if (message.choice?.$case === 'aString' && message.choice?.aString !== "") {
+    if (message.choice?.$case === 'aString' && message.choice?.aString !== '') {
       writer.uint32(26).string(message.choice.aString);
     }
     if (message.choice?.$case === 'aMessage' && message.choice?.aMessage !== undefined) {
@@ -97,13 +103,13 @@ export const PleaseChoose = {
       writer.uint32(88).int32(message.choice.anEnum);
     }
     writer.uint32(40).uint32(message.age);
-    if (message.eitherOr?.$case === 'either' && message.eitherOr?.either !== "") {
+    if (message.eitherOr?.$case === 'either' && message.eitherOr?.either !== '') {
       writer.uint32(58).string(message.eitherOr.either);
     }
-    if (message.eitherOr?.$case === 'or' && message.eitherOr?.or !== "") {
+    if (message.eitherOr?.$case === 'or' && message.eitherOr?.or !== '') {
       writer.uint32(66).string(message.eitherOr.or);
     }
-    if (message.eitherOr?.$case === 'thirdOption' && message.eitherOr?.thirdOption !== "") {
+    if (message.eitherOr?.$case === 'thirdOption' && message.eitherOr?.thirdOption !== '') {
       writer.uint32(74).string(message.eitherOr.thirdOption);
     }
     return writer;
@@ -231,7 +237,7 @@ export const PleaseChoose = {
   },
   toJSON(message: PleaseChoose): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     obj.aNumber = message.choice?.$case === 'aNumber' && message.choice?.aNumber || undefined;
     obj.aString = message.choice?.$case === 'aString' && message.choice?.aString || undefined;
     obj.aMessage = message.choice?.$case === 'aMessage' && message.choice?.aMessage ? PleaseChoose_Submessage.toJSON(message.choice?.aMessage) : undefined;
@@ -284,7 +290,7 @@ export const PleaseChoose_Submessage = {
   },
   toJSON(message: PleaseChoose_Submessage): unknown {
     const obj: any = {};
-    obj.name = message.name || "";
+    obj.name = message.name || '';
     return obj;
   },
 };
