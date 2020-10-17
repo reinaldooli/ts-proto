@@ -3,27 +3,8 @@ import { vector_tile } from './pbjs';
 import { Tile_Value } from './vector_tile';
 import IValue = vector_tile.Tile.IValue;
 import PbValue = vector_tile.Tile.Value;
-import { readFileSync } from 'fs';
-import { createTypeMap } from '../../src/types';
-import { optionsFromParameter } from '../../src/utils';
-import { generateFile } from '../../src/main';
-import { StringBuffer } from 'ts-poet/build/StringBuffer';
-import { google } from '../../build/pbjs';
-import CodeGeneratorRequest = google.protobuf.compiler.CodeGeneratorRequest;
 
 describe('vector-tile', () => {
-  it('works', () => {
-    const stdin = readFileSync('integration/vector-tile/vector_tile.bin');
-    const request = CodeGeneratorRequest.decode(stdin);
-    const typeMap = createTypeMap(request, optionsFromParameter(request.parameter));
-    for (let file of request.protoFile) {
-      const spec = generateFile(typeMap, file, '');
-      const out = new StringBuffer();
-      spec.emit(out);
-      expect(out.toString()).toMatchSnapshot();
-    }
-  });
-
   it('can decode', () => {
     const v1: IValue = {
       boolValue: false,

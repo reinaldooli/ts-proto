@@ -51,7 +51,13 @@ export function generateService(
     const info = sourceInfo.lookup(Fields.service.method, index);
     maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
 
-    requestFn = requestFn.addParameter('request', requestType(typeMap, methodDesc, options));
+    let inputType = requestType(typeMap, methodDesc, options);
+    // the grpc-web clients `fromPartial` the input before handing off to grpc-web's
+    // serde runtime, so it's okay to accept partial results from the client
+    if (options.outputClientImpl === 'grpc-web') {
+      inputType = TypeNames.parameterizedType(TypeNames.anyType('DeepPartial'), inputType);
+    }
+    requestFn = requestFn.addParameter('request', inputType);
 
     if (options.useContext) {
       requestFn = requestFn.addParameter('ctx', TypeNames.typeVariable('Context'));
@@ -195,7 +201,7 @@ function generateBatchingRpcMethod(typeMap: TypeMap, batchMethod: BatchMethod): 
     .addParameter(singular(inputFieldName), inputType)
     .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
     .addCode(
-      'return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n',
+      'return new %T<%T, %T>(%L, { cacheKeyFn: %T, ...ctx.rpcDataLoaderOptions });\n',
       dataloader,
       inputType,
       outputType,
@@ -236,7 +242,7 @@ function generateCachingRpcMethod(
     .addParameter('request', inputType)
     .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
     .addCode(
-      'return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n',
+      'return new %T<%T, %T>(%L, { cacheKeyFn: %T, ...ctx.rpcDataLoaderOptions  });\n',
       dataloader,
       inputType,
       outputType,
@@ -283,5 +289,14 @@ export function generateDataLoadersType(): InterfaceSpec {
     .addParameter('identifier', TypeNames.STRING)
     .addParameter('constructorFn', TypeNames.lambda2([], TypeNames.typeVariable('T')))
     .returns(TypeNames.typeVariable('T'));
-  return InterfaceSpec.create('DataLoaders').addFunction(fn);
+  return InterfaceSpec.create('DataLoaders')
+    .addModifiers(Modifier.EXPORT)
+    .addFunction(fn)
+    .addProperty('rpcDataLoaderOptions', 'DataLoaderOptions', { optional: true });
+}
+
+export function generateDataLoaderOptionsType(): InterfaceSpec {
+  return InterfaceSpec.create('DataLoaderOptions')
+    .addModifiers(Modifier.EXPORT)
+    .addProperty('cache', 'boolean', { optional: true });
 }

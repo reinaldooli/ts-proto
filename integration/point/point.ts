@@ -1,6 +1,5 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface Point {
   lat: number;
   lng: number;
@@ -21,11 +20,7 @@ const baseArea: object = {
   se: undefined,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = '';
 
 export const Point = {
   encode(message: Point, writer: Writer = Writer.create()): Writer {
@@ -83,8 +78,8 @@ export const Point = {
   },
   toJSON(message: Point): unknown {
     const obj: any = {};
-    obj.lat = message.lat || 0;
-    obj.lng = message.lng || 0;
+    message.lat !== undefined && (obj.lat = message.lat);
+    message.lng !== undefined && (obj.lng = message.lng);
     return obj;
   },
 };
@@ -149,8 +144,8 @@ export const Area = {
   },
   toJSON(message: Area): unknown {
     const obj: any = {};
-    obj.nw = message.nw ? Point.toJSON(message.nw) : undefined;
-    obj.se = message.se ? Point.toJSON(message.se) : undefined;
+    message.nw !== undefined && (obj.nw = message.nw ? Point.toJSON(message.nw) : undefined);
+    message.se !== undefined && (obj.se = message.se ? Point.toJSON(message.se) : undefined);
     return obj;
   },
 };

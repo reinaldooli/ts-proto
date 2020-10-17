@@ -282,12 +282,13 @@ describe('simple json', () => {
       createdAt: new Date(1_000),
       thing: undefined,
       blobs: [],
+      blob: new Uint8Array(),
       birthday: undefined,
     };
     expect(Simple.toJSON(s1)).toMatchInlineSnapshot(`
       Object {
         "age": 1,
-        "birthday": undefined,
+        "blob": "",
         "blobs": Array [],
         "child": Object {
           "name": "foo",
@@ -319,7 +320,6 @@ describe('simple json', () => {
           "b",
         ],
         "state": "ON",
-        "thing": undefined,
       }
     `);
   });
@@ -327,18 +327,11 @@ describe('simple json', () => {
   it('can encode empty objects', () => {
     expect(Simple.toJSON({} as Simple)).toMatchInlineSnapshot(`
       Object {
-        "age": 0,
-        "birthday": undefined,
         "blobs": Array [],
-        "child": undefined,
         "coins": Array [],
-        "createdAt": null,
         "grandChildren": Array [],
-        "name": "",
         "oldStates": Array [],
         "snacks": Array [],
-        "state": "UNKNOWN",
-        "thing": undefined,
       }
     `);
   });
@@ -348,21 +341,15 @@ describe('simple json', () => {
     const s2 = Simple.toJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
       Object {
-        "age": 0,
-        "birthday": undefined,
         "blobs": Array [],
         "child": Object {
           "name": "a",
           "type": "GOOD",
         },
         "coins": Array [],
-        "createdAt": null,
         "grandChildren": Array [],
-        "name": "",
         "oldStates": Array [],
         "snacks": Array [],
-        "state": "UNKNOWN",
-        "thing": undefined,
       }
     `);
   });
@@ -404,10 +391,7 @@ describe('simple json', () => {
     const s2 = SimpleWithWrappers.toJSON(s1);
     expect(s2).toMatchInlineSnapshot(`
       Object {
-        "age": undefined,
         "coins": Array [],
-        "enabled": undefined,
-        "name": undefined,
         "snacks": Array [],
       }
     `);
@@ -424,7 +408,6 @@ describe('simple json', () => {
     expect(OneOfMessage.toJSON(s1)).toMatchInlineSnapshot(`
       Object {
         "first": "first",
-        "last": undefined,
       }
     `);
   });

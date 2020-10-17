@@ -1,6 +1,5 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface Issue56 {
   test: EnumWithoutZero;
 }
@@ -9,11 +8,7 @@ const baseIssue56: object = {
   test: 1,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = 'simple';
 
 export enum EnumWithoutZero {
   A = 1,
@@ -24,13 +19,13 @@ export enum EnumWithoutZero {
 export function enumWithoutZeroFromJSON(object: any): EnumWithoutZero {
   switch (object) {
     case 1:
-    case "A":
+    case 'A':
       return EnumWithoutZero.A;
     case 2:
-    case "B":
+    case 'B':
       return EnumWithoutZero.B;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return EnumWithoutZero.UNRECOGNIZED;
   }
@@ -39,11 +34,11 @@ export function enumWithoutZeroFromJSON(object: any): EnumWithoutZero {
 export function enumWithoutZeroToJSON(object: EnumWithoutZero): string {
   switch (object) {
     case EnumWithoutZero.A:
-      return "A";
+      return 'A';
     case EnumWithoutZero.B:
-      return "B";
+      return 'B';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -89,7 +84,7 @@ export const Issue56 = {
   },
   toJSON(message: Issue56): unknown {
     const obj: any = {};
-    obj.test = enumWithoutZeroToJSON(message.test);
+    message.test !== undefined && (obj.test = enumWithoutZeroToJSON(message.test));
     return obj;
   },
 };

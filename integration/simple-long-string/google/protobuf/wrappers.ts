@@ -1,6 +1,5 @@
 import * as Long from 'long';
-import { Writer, Reader } from 'protobufjs/minimal';
-
+import { Writer, Reader, util, configure } from 'protobufjs/minimal';
 
 /**
  *  Wrapper message for `double`.
@@ -119,7 +118,7 @@ const baseFloatValue: object = {
 };
 
 const baseInt64Value: object = {
-  value: "0",
+  value: '0',
 };
 
 const baseUInt64Value: object = {
@@ -147,14 +146,14 @@ const baseBytesValue: object = {
 };
 
 interface Rpc {
-
   request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
 }
 
 function longToString(long: Long) {
   return long.toString();
 }
+
+export const protobufPackage = 'google.protobuf';
 
 export const DoubleValue = {
   encode(message: DoubleValue, writer: Writer = Writer.create()): Writer {
@@ -198,7 +197,7 @@ export const DoubleValue = {
   },
   toJSON(message: DoubleValue): unknown {
     const obj: any = {};
-    obj.value = message.value || 0;
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -245,7 +244,7 @@ export const FloatValue = {
   },
   toJSON(message: FloatValue): unknown {
     const obj: any = {};
-    obj.value = message.value || 0;
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -277,7 +276,7 @@ export const Int64Value = {
     if (object.value !== undefined && object.value !== null) {
       message.value = String(object.value);
     } else {
-      message.value = "0";
+      message.value = '0';
     }
     return message;
   },
@@ -286,13 +285,13 @@ export const Int64Value = {
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
     } else {
-      message.value = "0";
+      message.value = '0';
     }
     return message;
   },
   toJSON(message: Int64Value): unknown {
     const obj: any = {};
-    obj.value = message.value || "0";
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -339,7 +338,7 @@ export const UInt64Value = {
   },
   toJSON(message: UInt64Value): unknown {
     const obj: any = {};
-    obj.value = message.value || '0';
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -386,7 +385,7 @@ export const Int32Value = {
   },
   toJSON(message: Int32Value): unknown {
     const obj: any = {};
-    obj.value = message.value || 0;
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -433,7 +432,7 @@ export const UInt32Value = {
   },
   toJSON(message: UInt32Value): unknown {
     const obj: any = {};
-    obj.value = message.value || 0;
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -480,7 +479,7 @@ export const BoolValue = {
   },
   toJSON(message: BoolValue): unknown {
     const obj: any = {};
-    obj.value = message.value || false;
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -527,7 +526,7 @@ export const StringValue = {
   },
   toJSON(message: StringValue): unknown {
     const obj: any = {};
-    obj.value = message.value || '';
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -565,22 +564,30 @@ export const BytesValue = {
     const message = { ...baseBytesValue } as BytesValue;
     if (object.value !== undefined && object.value !== null) {
       message.value = object.value;
+    } else {
+      message.value = new Uint8Array();
     }
     return message;
   },
   toJSON(message: BytesValue): unknown {
     const obj: any = {};
-    obj.value = message.value !== undefined ? base64FromBytes(message.value) : undefined;
+    message.value !== undefined &&
+      (obj.value = base64FromBytes(message.value !== undefined ? message.value : new Uint8Array()));
     return obj;
   },
 };
+
+if (util.Long !== (Long as any)) {
+  util.Long = Long as any;
+  configure();
+}
 
 interface WindowBase64 {
   atob(b64: string): string;
   btoa(bin: string): string;
 }
 
-const windowBase64 = (globalThis as unknown as WindowBase64);
+const windowBase64 = (globalThis as unknown) as WindowBase64;
 const atob = windowBase64.atob || ((b64: string) => Buffer.from(b64, 'base64').toString('binary'));
 const btoa = windowBase64.btoa || ((bin: string) => Buffer.from(bin, 'binary').toString('base64'));
 
@@ -588,7 +595,7 @@ function bytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; ++i) {
-      arr[i] = bin.charCodeAt(i);
+    arr[i] = bin.charCodeAt(i);
   }
   return arr;
 }

@@ -1,3 +1,55 @@
+
+## v1.38.0
+
+* Add `unrecognizedEnum` option for disabling the `UNRECOGNIZED` enum values (ShakedH)
+
+## v1.37.0
+
+* Fix `forceLong` behavior when using wrapper types (Graham)
+* Add `rpcDataLoaderOptions` (Felix Mo)
+* Add `useDate` option to disable `java.util.Date` mapping (Graham)
+  * This is primarily useful for NestJS which can only encode the original `google.protobuf.Timestamp` type
+* Add `stringEnums` option (Bastian Eicher)
+  * Note this is not supported in the binary `encode`/`decode` methods yet
+* Avoid unnecessary `import =` usage (Graham)
+
+## v1.36.0
+
+* Add a `protobufPackage` exported `const` for metadata
+
+## v1.35.1
+
+* Fix maps of enums (@ahmadj-levelbenefits)
+
+## v1.35.0
+
+* Fix proto3 optional support
+
+## v1.34.0
+
+* Fix `blob`s in `fromPartial` and `toJSON`
+
+## v1.33.0
+
+* Automatically configure `protobuf.util.Long` when 64-bit numbers are used (fixes #78)
+
+## v1.32.0
+
+* Add support for the experimental proto3 `optional` keyword
+
+## v1.31.0
+
+* Fix `oneof=unions` not decoding default values correctly (@philikon)
+
+## v1.30.0
+
+* Accept cross-call metadata args in the `GrpcWebImpl` constructor
+* Accept `DeepPartial` request types for grpc-web calls
+
+## v1.29.0
+
+* Fix `toJSON` with maps of messages (#124 by @mscolnick)
+
 ## v1.28.0
 
 * Use `enum` keyword for modeling keywords again

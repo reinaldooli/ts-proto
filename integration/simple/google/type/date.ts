@@ -1,6 +1,5 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 /**
  *  Represents a whole or partial calendar date, e.g. a birthday. The time of day
  *  and time zone are either specified elsewhere or are not significant. The date
@@ -38,11 +37,7 @@ const baseDateMessage: object = {
   day: 0,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = 'google.type';
 
 export const DateMessage = {
   encode(message: DateMessage, writer: Writer = Writer.create()): Writer {
@@ -114,9 +109,9 @@ export const DateMessage = {
   },
   toJSON(message: DateMessage): unknown {
     const obj: any = {};
-    obj.year = message.year || 0;
-    obj.month = message.month || 0;
-    obj.day = message.day || 0;
+    message.year !== undefined && (obj.year = message.year);
+    message.month !== undefined && (obj.month = message.month);
+    message.day !== undefined && (obj.day = message.day);
     return obj;
   },
 };

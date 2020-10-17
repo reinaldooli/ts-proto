@@ -1,7 +1,6 @@
 import * as Long from 'long';
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 /**
  *  A Timestamp represents a point in time independent of any time zone or local
  *  calendar, encoded as a count of seconds and fractions of seconds at
@@ -109,11 +108,7 @@ const baseTimestamp: object = {
   nanos: 0,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = 'google.protobuf';
 
 export const Timestamp = {
   encode(message: Timestamp, writer: Writer = Writer.create()): Writer {
@@ -171,8 +166,8 @@ export const Timestamp = {
   },
   toJSON(message: Timestamp): unknown {
     const obj: any = {};
-    obj.seconds = (message.seconds || Long.ZERO).toString();
-    obj.nanos = message.nanos || 0;
+    message.seconds !== undefined && (obj.seconds = (message.seconds || Long.ZERO).toString());
+    message.nanos !== undefined && (obj.nanos = message.nanos);
     return obj;
   },
 };

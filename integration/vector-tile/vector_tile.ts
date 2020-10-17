@@ -1,5 +1,5 @@
 import * as Long from 'long';
-import { Writer, Reader } from 'protobufjs/minimal';
+import { Writer, Reader, util, configure } from 'protobufjs/minimal';
 
 export interface Tile {
   layers: Tile_Layer[];
@@ -71,6 +71,8 @@ function longToNumber(long: Long) {
   }
   return long.toNumber();
 }
+
+export const protobufPackage = 'vector_tile';
 
 export enum Tile_GeomType {
   UNKNOWN = 0,
@@ -298,13 +300,13 @@ export const Tile_Value = {
   },
   toJSON(message: Tile_Value): unknown {
     const obj: any = {};
-    obj.stringValue = message.stringValue || '';
-    obj.floatValue = message.floatValue || 0;
-    obj.doubleValue = message.doubleValue || 0;
-    obj.intValue = message.intValue || 0;
-    obj.uintValue = message.uintValue || 0;
-    obj.sintValue = message.sintValue || 0;
-    obj.boolValue = message.boolValue || false;
+    message.stringValue !== undefined && (obj.stringValue = message.stringValue);
+    message.floatValue !== undefined && (obj.floatValue = message.floatValue);
+    message.doubleValue !== undefined && (obj.doubleValue = message.doubleValue);
+    message.intValue !== undefined && (obj.intValue = message.intValue);
+    message.uintValue !== undefined && (obj.uintValue = message.uintValue);
+    message.sintValue !== undefined && (obj.sintValue = message.sintValue);
+    message.boolValue !== undefined && (obj.boolValue = message.boolValue);
     return obj;
   },
 };
@@ -421,15 +423,15 @@ export const Tile_Feature = {
   },
   toJSON(message: Tile_Feature): unknown {
     const obj: any = {};
-    obj.id = message.id || 0;
+    message.id !== undefined && (obj.id = message.id);
     if (message.tags) {
-      obj.tags = message.tags.map((e) => e || 0);
+      obj.tags = message.tags.map((e) => e);
     } else {
       obj.tags = [];
     }
-    obj.type = tile_GeomTypeToJSON(message.type);
+    message.type !== undefined && (obj.type = tile_GeomTypeToJSON(message.type));
     if (message.geometry) {
-      obj.geometry = message.geometry.map((e) => e || 0);
+      obj.geometry = message.geometry.map((e) => e);
     } else {
       obj.geometry = [];
     }
@@ -564,15 +566,15 @@ export const Tile_Layer = {
   },
   toJSON(message: Tile_Layer): unknown {
     const obj: any = {};
-    obj.version = message.version || 0;
-    obj.name = message.name || '';
+    message.version !== undefined && (obj.version = message.version);
+    message.name !== undefined && (obj.name = message.name);
     if (message.features) {
       obj.features = message.features.map((e) => (e ? Tile_Feature.toJSON(e) : undefined));
     } else {
       obj.features = [];
     }
     if (message.keys) {
-      obj.keys = message.keys.map((e) => e || '');
+      obj.keys = message.keys.map((e) => e);
     } else {
       obj.keys = [];
     }
@@ -581,10 +583,15 @@ export const Tile_Layer = {
     } else {
       obj.values = [];
     }
-    obj.extent = message.extent || 0;
+    message.extent !== undefined && (obj.extent = message.extent);
     return obj;
   },
 };
+
+if (util.Long !== (Long as any)) {
+  util.Long = Long as any;
+  configure();
+}
 
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
 type DeepPartial<T> = T extends Builtin

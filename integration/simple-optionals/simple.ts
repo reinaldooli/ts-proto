@@ -2,11 +2,10 @@
 //  comment in the output source file.
 //
 import { ImportedThing } from './import_dir/thing';
-import { Reader, Writer } from 'protobufjs/minimal';
+import { Reader, Writer, util, configure } from 'protobufjs/minimal';
 import { Timestamp } from './google/protobuf/timestamp';
 import * as Long from 'long';
 import { StringValue, Int32Value, BoolValue } from './google/protobuf/wrappers';
-
 
 /**
  * * Example comment on the Simple message  */
@@ -160,8 +159,7 @@ const baseNested_InnerMessage_DeepMessage: object = {
   name: '',
 };
 
-const baseOneOfMessage: object = {
-};
+const baseOneOfMessage: object = {};
 
 const baseSimpleWithWrappers: object = {
   name: undefined,
@@ -229,13 +227,10 @@ const baseNumbers: object = {
 };
 
 export interface PingService {
-
   ping(request: PingRequest): Promise<PingResponse>;
-
 }
 
 export class PingServiceClientImpl implements PingService {
-
   private readonly rpc: Rpc;
 
   constructor(rpc: Rpc) {
@@ -244,22 +239,19 @@ export class PingServiceClientImpl implements PingService {
 
   ping(request: PingRequest): Promise<PingResponse> {
     const data = PingRequest.encode(request).finish();
-    const promise = this.rpc.request("simple.PingService", "ping", data);
-    return promise.then(data => PingResponse.decode(new Reader(data)));
+    const promise = this.rpc.request('simple.PingService', 'ping', data);
+    return promise.then((data) => PingResponse.decode(new Reader(data)));
   }
-
 }
 
 interface Rpc {
-
   request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
 }
 
 function fromJsonTimestamp(o: any): Date {
   if (o instanceof Date) {
     return o;
-  } else if (typeof o === "string") {
+  } else if (typeof o === 'string') {
     return new Date(o);
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
@@ -280,10 +272,12 @@ function fromTimestamp(t: Timestamp): Date {
 
 function longToNumber(long: Long) {
   if (long.gt(Number.MAX_SAFE_INTEGER)) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
   }
   return long.toNumber();
 }
+
+export const protobufPackage = 'simple';
 
 export enum StateEnum {
   UNKNOWN = 0,
@@ -295,16 +289,16 @@ export enum StateEnum {
 export function stateEnumFromJSON(object: any): StateEnum {
   switch (object) {
     case 0:
-    case "UNKNOWN":
+    case 'UNKNOWN':
       return StateEnum.UNKNOWN;
     case 2:
-    case "ON":
+    case 'ON':
       return StateEnum.ON;
     case 3:
-    case "OFF":
+    case 'OFF':
       return StateEnum.OFF;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return StateEnum.UNRECOGNIZED;
   }
@@ -313,13 +307,13 @@ export function stateEnumFromJSON(object: any): StateEnum {
 export function stateEnumToJSON(object: StateEnum): string {
   switch (object) {
     case StateEnum.UNKNOWN:
-      return "UNKNOWN";
+      return 'UNKNOWN';
     case StateEnum.ON:
-      return "ON";
+      return 'ON';
     case StateEnum.OFF:
-      return "OFF";
+      return 'OFF';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -333,16 +327,16 @@ export enum Child_Type {
 export function child_TypeFromJSON(object: any): Child_Type {
   switch (object) {
     case 0:
-    case "UNKNOWN":
+    case 'UNKNOWN':
       return Child_Type.UNKNOWN;
     case 1:
-    case "GOOD":
+    case 'GOOD':
       return Child_Type.GOOD;
     case 2:
-    case "BAD":
+    case 'BAD':
       return Child_Type.BAD;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return Child_Type.UNRECOGNIZED;
   }
@@ -351,13 +345,13 @@ export function child_TypeFromJSON(object: any): Child_Type {
 export function child_TypeToJSON(object: Child_Type): string {
   switch (object) {
     case Child_Type.UNKNOWN:
-      return "UNKNOWN";
+      return 'UNKNOWN';
     case Child_Type.GOOD:
-      return "GOOD";
+      return 'GOOD';
     case Child_Type.BAD:
-      return "BAD";
+      return 'BAD';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -371,16 +365,16 @@ export enum Nested_InnerEnum {
 export function nested_InnerEnumFromJSON(object: any): Nested_InnerEnum {
   switch (object) {
     case 0:
-    case "UNKNOWN_INNER":
+    case 'UNKNOWN_INNER':
       return Nested_InnerEnum.UNKNOWN_INNER;
     case 100:
-    case "GOOD":
+    case 'GOOD':
       return Nested_InnerEnum.GOOD;
     case 1000:
-    case "BAD":
+    case 'BAD':
       return Nested_InnerEnum.BAD;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return Nested_InnerEnum.UNRECOGNIZED;
   }
@@ -389,13 +383,13 @@ export function nested_InnerEnumFromJSON(object: any): Nested_InnerEnum {
 export function nested_InnerEnumToJSON(object: Nested_InnerEnum): string {
   switch (object) {
     case Nested_InnerEnum.UNKNOWN_INNER:
-      return "UNKNOWN_INNER";
+      return 'UNKNOWN_INNER';
     case Nested_InnerEnum.GOOD:
-      return "GOOD";
+      return 'GOOD';
     case Nested_InnerEnum.BAD:
-      return "BAD";
+      return 'BAD';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -611,32 +605,33 @@ export const Simple = {
   },
   toJSON(message: Simple): unknown {
     const obj: any = {};
-    obj.name = message.name || '';
-    obj.age = message.age || 0;
-    obj.createdAt = message.createdAt !== undefined ? message.createdAt.toISOString() : null;
-    obj.child = message.child ? Child.toJSON(message.child) : undefined;
-    obj.state = stateEnumToJSON(message.state);
+    message.name !== undefined && (obj.name = message.name);
+    message.age !== undefined && (obj.age = message.age);
+    message.createdAt !== undefined &&
+      (obj.createdAt = message.createdAt !== undefined ? message.createdAt.toISOString() : null);
+    message.child !== undefined && (obj.child = message.child ? Child.toJSON(message.child) : undefined);
+    message.state !== undefined && (obj.state = stateEnumToJSON(message.state));
     if (message.grandChildren) {
-      obj.grandChildren = message.grandChildren.map(e => e ? Child.toJSON(e) : undefined);
+      obj.grandChildren = message.grandChildren.map((e) => (e ? Child.toJSON(e) : undefined));
     } else {
       obj.grandChildren = [];
     }
     if (message.coins) {
-      obj.coins = message.coins.map(e => e || 0);
+      obj.coins = message.coins.map((e) => e);
     } else {
       obj.coins = [];
     }
     if (message.snacks) {
-      obj.snacks = message.snacks.map(e => e || '');
+      obj.snacks = message.snacks.map((e) => e);
     } else {
       obj.snacks = [];
     }
     if (message.oldStates) {
-      obj.oldStates = message.oldStates.map(e => stateEnumToJSON(e));
+      obj.oldStates = message.oldStates.map((e) => stateEnumToJSON(e));
     } else {
       obj.oldStates = [];
     }
-    obj.thing = message.thing ? ImportedThing.toJSON(message.thing) : undefined;
+    message.thing !== undefined && (obj.thing = message.thing ? ImportedThing.toJSON(message.thing) : undefined);
     return obj;
   },
 };
@@ -697,8 +692,8 @@ export const Child = {
   },
   toJSON(message: Child): unknown {
     const obj: any = {};
-    obj.name = message.name || '';
-    obj.type = child_TypeToJSON(message.type);
+    message.name !== undefined && (obj.name = message.name);
+    message.type !== undefined && (obj.type = child_TypeToJSON(message.type));
     return obj;
   },
 };
@@ -775,9 +770,10 @@ export const Nested = {
   },
   toJSON(message: Nested): unknown {
     const obj: any = {};
-    obj.name = message.name || '';
-    obj.message = message.message ? Nested_InnerMessage.toJSON(message.message) : undefined;
-    obj.state = nested_InnerEnumToJSON(message.state);
+    message.name !== undefined && (obj.name = message.name);
+    message.message !== undefined &&
+      (obj.message = message.message ? Nested_InnerMessage.toJSON(message.message) : undefined);
+    message.state !== undefined && (obj.state = nested_InnerEnumToJSON(message.state));
     return obj;
   },
 };
@@ -840,8 +836,9 @@ export const Nested_InnerMessage = {
   },
   toJSON(message: Nested_InnerMessage): unknown {
     const obj: any = {};
-    obj.name = message.name || '';
-    obj.deep = message.deep ? Nested_InnerMessage_DeepMessage.toJSON(message.deep) : undefined;
+    message.name !== undefined && (obj.name = message.name);
+    message.deep !== undefined &&
+      (obj.deep = message.deep ? Nested_InnerMessage_DeepMessage.toJSON(message.deep) : undefined);
     return obj;
   },
 };
@@ -888,17 +885,17 @@ export const Nested_InnerMessage_DeepMessage = {
   },
   toJSON(message: Nested_InnerMessage_DeepMessage): unknown {
     const obj: any = {};
-    obj.name = message.name || '';
+    message.name !== undefined && (obj.name = message.name);
     return obj;
   },
 };
 
 export const OneOfMessage = {
   encode(message: OneOfMessage, writer: Writer = Writer.create()): Writer {
-    if (message.first !== undefined && message.first !== '') {
+    if (message.first !== undefined) {
       writer.uint32(10).string(message.first);
     }
-    if (message.last !== undefined && message.last !== '') {
+    if (message.last !== undefined) {
       writer.uint32(18).string(message.last);
     }
     return writer;
@@ -953,8 +950,8 @@ export const OneOfMessage = {
   },
   toJSON(message: OneOfMessage): unknown {
     const obj: any = {};
-    obj.first = message.first || undefined;
-    obj.last = message.last || undefined;
+    message.first !== undefined && (obj.first = message.first);
+    message.last !== undefined && (obj.last = message.last);
     return obj;
   },
 };
@@ -1073,16 +1070,16 @@ export const SimpleWithWrappers = {
   },
   toJSON(message: SimpleWithWrappers): unknown {
     const obj: any = {};
-    obj.name = message.name || undefined;
-    obj.age = message.age || undefined;
-    obj.enabled = message.enabled || undefined;
+    message.name !== undefined && (obj.name = message.name);
+    message.age !== undefined && (obj.age = message.age);
+    message.enabled !== undefined && (obj.enabled = message.enabled);
     if (message.coins) {
-      obj.coins = message.coins.map(e => e || undefined);
+      obj.coins = message.coins.map((e) => e);
     } else {
       obj.coins = [];
     }
     if (message.snacks) {
-      obj.snacks = message.snacks.map(e => e || undefined);
+      obj.snacks = message.snacks.map((e) => e);
     } else {
       obj.snacks = [];
     }
@@ -1132,7 +1129,7 @@ export const Entity = {
   },
   toJSON(message: Entity): unknown {
     const obj: any = {};
-    obj.id = message.id || 0;
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
@@ -1141,13 +1138,13 @@ export const SimpleWithMap = {
   encode(message: SimpleWithMap, writer: Writer = Writer.create()): Writer {
     Object.entries(message.entitiesById).forEach(([key, value]) => {
       SimpleWithMap_EntitiesByIdEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).ldelim();
-    })
+    });
     Object.entries(message.nameLookup).forEach(([key, value]) => {
       SimpleWithMap_NameLookupEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).ldelim();
-    })
+    });
     Object.entries(message.intLookup).forEach(([key, value]) => {
       SimpleWithMap_IntLookupEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).ldelim();
-    })
+    });
     return writer;
   },
   decode(input: Uint8Array | Reader, length?: number): SimpleWithMap {
@@ -1193,17 +1190,17 @@ export const SimpleWithMap = {
     if (object.entitiesById !== undefined && object.entitiesById !== null) {
       Object.entries(object.entitiesById).forEach(([key, value]) => {
         message.entitiesById[Number(key)] = Entity.fromJSON(value);
-      })
+      });
     }
     if (object.nameLookup !== undefined && object.nameLookup !== null) {
       Object.entries(object.nameLookup).forEach(([key, value]) => {
         message.nameLookup[key] = String(value);
-      })
+      });
     }
     if (object.intLookup !== undefined && object.intLookup !== null) {
       Object.entries(object.intLookup).forEach(([key, value]) => {
         message.intLookup[Number(key)] = Number(value);
-      })
+      });
     }
     return message;
   },
@@ -1217,21 +1214,21 @@ export const SimpleWithMap = {
         if (value !== undefined) {
           message.entitiesById[Number(key)] = Entity.fromPartial(value);
         }
-      })
+      });
     }
     if (object.nameLookup !== undefined && object.nameLookup !== null) {
       Object.entries(object.nameLookup).forEach(([key, value]) => {
         if (value !== undefined) {
           message.nameLookup[key] = String(value);
         }
-      })
+      });
     }
     if (object.intLookup !== undefined && object.intLookup !== null) {
       Object.entries(object.intLookup).forEach(([key, value]) => {
         if (value !== undefined) {
           message.intLookup[Number(key)] = Number(value);
         }
-      })
+      });
     }
     return message;
   },
@@ -1240,20 +1237,20 @@ export const SimpleWithMap = {
     obj.entitiesById = {};
     if (message.entitiesById) {
       Object.entries(message.entitiesById).forEach(([k, v]) => {
-        obj.entitiesById[k] = v;
-      })
+        obj.entitiesById[k] = Entity.toJSON(v);
+      });
     }
     obj.nameLookup = {};
     if (message.nameLookup) {
       Object.entries(message.nameLookup).forEach(([k, v]) => {
         obj.nameLookup[k] = v;
-      })
+      });
     }
     obj.intLookup = {};
     if (message.intLookup) {
       Object.entries(message.intLookup).forEach(([k, v]) => {
         obj.intLookup[k] = v;
-      })
+      });
     }
     return obj;
   },
@@ -1317,8 +1314,8 @@ export const SimpleWithMap_EntitiesByIdEntry = {
   },
   toJSON(message: SimpleWithMap_EntitiesByIdEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || 0;
-    obj.value = message.value ? Entity.toJSON(message.value) : undefined;
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value ? Entity.toJSON(message.value) : undefined);
     return obj;
   },
 };
@@ -1379,8 +1376,8 @@ export const SimpleWithMap_NameLookupEntry = {
   },
   toJSON(message: SimpleWithMap_NameLookupEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || '';
-    obj.value = message.value || '';
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -1441,8 +1438,8 @@ export const SimpleWithMap_IntLookupEntry = {
   },
   toJSON(message: SimpleWithMap_IntLookupEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || 0;
-    obj.value = message.value || 0;
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value);
     return obj;
   },
 };
@@ -1451,7 +1448,7 @@ export const SimpleWithSnakeCaseMap = {
   encode(message: SimpleWithSnakeCaseMap, writer: Writer = Writer.create()): Writer {
     Object.entries(message.entitiesById).forEach(([key, value]) => {
       SimpleWithSnakeCaseMap_EntitiesByIdEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).ldelim();
-    })
+    });
     return writer;
   },
   decode(input: Uint8Array | Reader, length?: number): SimpleWithSnakeCaseMap {
@@ -1481,7 +1478,7 @@ export const SimpleWithSnakeCaseMap = {
     if (object.entitiesById !== undefined && object.entitiesById !== null) {
       Object.entries(object.entitiesById).forEach(([key, value]) => {
         message.entitiesById[Number(key)] = Entity.fromJSON(value);
-      })
+      });
     }
     return message;
   },
@@ -1493,7 +1490,7 @@ export const SimpleWithSnakeCaseMap = {
         if (value !== undefined) {
           message.entitiesById[Number(key)] = Entity.fromPartial(value);
         }
-      })
+      });
     }
     return message;
   },
@@ -1502,8 +1499,8 @@ export const SimpleWithSnakeCaseMap = {
     obj.entitiesById = {};
     if (message.entitiesById) {
       Object.entries(message.entitiesById).forEach(([k, v]) => {
-        obj.entitiesById[k] = v;
-      })
+        obj.entitiesById[k] = Entity.toJSON(v);
+      });
     }
     return obj;
   },
@@ -1567,8 +1564,8 @@ export const SimpleWithSnakeCaseMap_EntitiesByIdEntry = {
   },
   toJSON(message: SimpleWithSnakeCaseMap_EntitiesByIdEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || 0;
-    obj.value = message.value ? Entity.toJSON(message.value) : undefined;
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value ? Entity.toJSON(message.value) : undefined);
     return obj;
   },
 };
@@ -1615,7 +1612,7 @@ export const PingRequest = {
   },
   toJSON(message: PingRequest): unknown {
     const obj: any = {};
-    obj.input = message.input || '';
+    message.input !== undefined && (obj.input = message.input);
     return obj;
   },
 };
@@ -1662,7 +1659,7 @@ export const PingResponse = {
   },
   toJSON(message: PingResponse): unknown {
     const obj: any = {};
-    obj.output = message.output || '';
+    message.output !== undefined && (obj.output = message.output);
     return obj;
   },
 };
@@ -1863,21 +1860,26 @@ export const Numbers = {
   },
   toJSON(message: Numbers): unknown {
     const obj: any = {};
-    obj.double = message.double || 0;
-    obj.float = message.float || 0;
-    obj.int32 = message.int32 || 0;
-    obj.int64 = message.int64 || 0;
-    obj.uint32 = message.uint32 || 0;
-    obj.uint64 = message.uint64 || 0;
-    obj.sint32 = message.sint32 || 0;
-    obj.sint64 = message.sint64 || 0;
-    obj.fixed32 = message.fixed32 || 0;
-    obj.fixed64 = message.fixed64 || 0;
-    obj.sfixed32 = message.sfixed32 || 0;
-    obj.sfixed64 = message.sfixed64 || 0;
+    message.double !== undefined && (obj.double = message.double);
+    message.float !== undefined && (obj.float = message.float);
+    message.int32 !== undefined && (obj.int32 = message.int32);
+    message.int64 !== undefined && (obj.int64 = message.int64);
+    message.uint32 !== undefined && (obj.uint32 = message.uint32);
+    message.uint64 !== undefined && (obj.uint64 = message.uint64);
+    message.sint32 !== undefined && (obj.sint32 = message.sint32);
+    message.sint64 !== undefined && (obj.sint64 = message.sint64);
+    message.fixed32 !== undefined && (obj.fixed32 = message.fixed32);
+    message.fixed64 !== undefined && (obj.fixed64 = message.fixed64);
+    message.sfixed32 !== undefined && (obj.sfixed32 = message.sfixed32);
+    message.sfixed64 !== undefined && (obj.sfixed64 = message.sfixed64);
     return obj;
   },
 };
+
+if (util.Long !== (Long as any)) {
+  util.Long = Long as any;
+  configure();
+}
 
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
 type DeepPartial<T> = T extends Builtin

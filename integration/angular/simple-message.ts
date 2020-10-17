@@ -1,6 +1,5 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface SimpleMessage {
   numberField: number;
 }
@@ -9,11 +8,7 @@ const baseSimpleMessage: object = {
   numberField: 0,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = 'angular';
 
 export const SimpleMessage = {
   encode(message: SimpleMessage, writer: Writer = Writer.create()): Writer {
@@ -57,7 +52,7 @@ export const SimpleMessage = {
   },
   toJSON(message: SimpleMessage): unknown {
     const obj: any = {};
-    obj.numberField = message.numberField || 0;
+    message.numberField !== undefined && (obj.numberField = message.numberField);
     return obj;
   },
 };

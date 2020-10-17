@@ -4,7 +4,7 @@
 
 # ts-proto
 
-> `ts-proto` transforms your `.proto` files into strong typed `typescript` files!
+> `ts-proto` transforms your `.proto` files into strongly-typed, idiomatic TypeScript files!
 
 ## Table of contents
 
@@ -63,7 +63,7 @@ export interface PingService {
 }
 ```
 
-It will also generate client implementations of `PingService`, but currently only [Twirp](https://github.com/twitchtv/twirp) clients are supported (see [issue 2](https://github.com/stephenh/ts-proto/issues/2) for wider/native GRPC support).
+It will also generate client implementations of `PingService`; currently [Twirp](https://github.com/twitchtv/twirp), [grpc-web](./integration/grpc-web), and [nestjs](./NESTJS.markdown) are supported.
 
 # QuickStart
 
@@ -71,6 +71,7 @@ It will also generate client implementations of `PingService`, but currently onl
 - `protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=. ./simple.proto`
   - (Note that the output parameter name, `ts_proto_out`, is named based on the suffix of the plugin's name, i.e. "ts_proto" suffix in the `--plugin=./node_modules/.bin/protoc-gen-ts_proto` parameter becomes the `_out` prefix, per `protoc`'s CLI conventions.)
   - On Windows, use `protoc --plugin=protoc-gen-ts_proto=.\node_modules\.bin\protoc-gen-ts_proto.cmd --ts_proto_out=. ./imple.proto`
+  - Ensure you're using a modern `protoc`, i.e. the original `protoc` `3.0.0` doesn't support the `_opt` flag
 
 This will generate `*.ts` source files for the given `*.proto` types.
 
@@ -144,11 +145,11 @@ creating a class and calling the right getters/setters.
 
 - A poor man's attempt at "please give us back optional types"
 
-  Wrapper types, i.e. `google.protobuf.StringValue`, are mapped as optional values,
-  i.e. `string | undefined`, which means for primitives we can kind of pretend that
-  the protobuf type system has optional types.
+  The canonical protobuf wrapper types, i.e. `google.protobuf.StringValue`, are mapped as optional values, i.e. `string | undefined`, which means for primitives we can kind of pretend the protobuf type system has optional types.
 
-- Timestamp is mapped as `Date`
+  (**Update**: ts-proto now also supports the proto3 `optional` keyword.)
+
+- Timestamps are mapped as `Date`
 
 - `fromJSON`/`toJSON` support the [canonical Protobuf JS](https://developers.google.com/protocol-buffers/docs/proto3#json) format (i.e. timestamps are ISO strings)
 
@@ -234,9 +235,15 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
   Eventually if TypesCript supports [Exact Types](https://github.com/microsoft/TypeScript/issues/12936), that should allow ts-proto to switch to `useOptionals=true` as the default/only behavior, have the generated `Message.encode`/`Message.toPartial`/etc. methods accept `Exact<T>` versions of the message types, and the result would be both safe + succinct.
 
+  Also see the comment in [this issue](https://github.com/stephenh/ts-proto/issues/120#issuecomment-678375833) which explains some of the nuance behind making all fields optional (currently `useOptionals` only makes message fields optional), specifically that a message created with `const message: Message = { ...key not set... }` vs. `const message = Message.decode(...key not set...)` would look different to clients.
+
+  (Also note that each message's `Message.fromPartial(...)` static methods are specifically meant to address this, because it allows you to create a message with all keys optional, but still applies the usual protobuf default-value-on-missing-key logic, so that code that reads the message get more consistent behavior.
+
 - With `--ts_proto_opt=oneof=unions`, `oneof` fields will be generated as ADTs.
 
   See the "OneOf Handling" section.
+
+- With `--ts_proto_opt=unrecognizedEnum=false` enums will not contain an `UNRECOGNIZED` key with value of -1.
 
 - With `--ts_proto_opt=lowerCaseServiceMethods=true`, the method names of service methods will be lowered/camel-case, i.e. `service.findFoo` instead of `service.FindFoo`.
 
@@ -248,13 +255,19 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
   This is also useful if you want "only types".
 
+- With `--ts_proto_opt=stringEnums=true`, the generated enum types will be string-based instead of int-based.
+
+  This is useful if you want "only types" and are using a gRPC REST Gateway configured to serialize enums as strings.
+
+  (Requires `outputEncodeMethods=false`.)
+
 - With `--ts_proto_opt=outputClientImpl=false`, the client implementations, i.e. `FooServiceClientImpl`, that implement the client-side (in Twirp, see next option for `grpc-web`) RPC interfaces will not be output.
 
 - With `--ts_proto_opt=outputClientImpl=grpc-web`, the client implementations, i.e. `FooServiceClientImpl`, will use the [@improbable-eng/grpc-web](https://github.com/improbable-eng/grpc-web) library at runtime to send grpc messages to a grpc-web backend.
- 
- (Note that this only uses the grpc-web runtime, you don't need to use any of their generated code, i.e. the ts-proto output replaces their `ts-protoc-gen` output.)
 
- You'll need to add the `@improbable-eng/grpc-web` and a transport to your project's `package.json`; see the `integration/grpc-web` directory for a working example.
+  (Note that this only uses the grpc-web runtime, you don't need to use any of their generated code, i.e. the ts-proto output replaces their `ts-protoc-gen` output.)
+
+  You'll need to add the `@improbable-eng/grpc-web` and a transport to your project's `package.json`; see the `integration/grpc-web` directory for a working example.
 
 - With `--ts_proto_opt=returnObservable=true`, the return type of service methods will be `Observable<T>` instead of `Promise<T>`.
 
@@ -272,6 +285,8 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
   Note that `addGrpcMetadata`, `addNestjsRestParameter` and `returnObservable` will still be false.
 
+- With `--ts_proto_opt=useDate=false`, fields of type `google.protobuf.Timestamp` will not be mapped to type `Date` in the generated types.
+
 ### Only Types
 
 If you're looking for `ts-proto` to generate only types for your Protobuf types then passing all three of `outputEncodeMethods`, `outputJsonMethods`, and `outputClientImpl` as `false` is probably what you want, i.e.:
@@ -281,6 +296,14 @@ If you're looking for `ts-proto` to generate only types for your Protobuf types 
 ### NestJS Support
 
 We have a great way of working together with [nestjs](https://docs.nestjs.com/microservices/grpc). `ts-proto` generates `interfaces` and `decorators` for you controller, client. For more information see the [nestjs readme](NESTJS.markdown).
+
+# Sponsors
+
+Kudos to our sponsors:
+
+* [ngrok](https://ngrok.com) funded ts-proto's initial grpc-web support.
+
+If you need ts-proto customizations or priority support for your company, you can ping me at [via email](mailto:stephen.haberman@gmail.com).
 
 # Building
 
@@ -303,14 +326,7 @@ The test suite's proto files (i.e. `simple.proto`, `batching.proto`, etc.) curre
 - Support the string-based encoding of duration in `fromJSON`/`toJSON`
 - Support the `json_name` annotation
 - Make `oneof=unions` the default behavior in 2.0
-
-# Typing Approach
-
-- Missing fields on read
-  - When decoding from binary, we set default values for all primitives
-  - When decoding from JSON, we may have missing keys.
-    - We could convert them to our prototype.
-  - When using an instantiated object, our types enforce all keys to be set.
+- Probably change `forceLong` default in 2.0, should default to `forceLong=long`
 
 # OneOf Handling
 
@@ -318,7 +334,7 @@ By default, `oneof` fields are modeled "flatly" in the message, i.e. `oneof eith
 
 With this output, you'll have to check both `if object.field_a` and `if object.field_b`, and if you set one, you'll have to remember to unset the other.
 
-It's generally recommended to use the `oneof=unions` option, which will change the output to be an Abstract Data Type/ADT like:
+We recommend using the `oneof=unions` option, which will change the output to be an Abstract Data Type/ADT like:
 
 ```typescript
 interface YourMessage {
@@ -328,7 +344,7 @@ interface YourMessage {
 
 As this will automatically enforce only one of `field_a` or `field_b` "being set" at a time, because the values are stored in the `eitherField` field that can only have a single value at a time.
 
-In ts-proto's currently-unplanned 2.x release, `oneof=unions` will become the default behavior.
+In ts-proto's currently-unscheduled 2.x release, `oneof=unions` will become the default behavior.
 
 # Primitive Types
 
@@ -342,38 +358,44 @@ If you want fields where you can model set/unset, see Wrapper Types.
 
 # Wrapper Types
 
-In core Protobuf, while unset primitives are read as default values, unset messages are returned as `null`.
+In core Protobuf, unset primitive fields become their respective default values (so you loose ability to distinguish "unset" from "default").
+ 
+However, unset message fields stay `null`.
 
-This allows a cute hack where you can model a logical `string | null` by creating a field that is a message (can be null) and the message has a single string value (for when the value is not null).
+This allows a cute hack where you can model a logical `string | unset` by creating a field that is technically a message (i.e. so it can stay `null` for the unset case), but the message only has a single string field (i.e for storing the value in the set case).
 
-Protobuf has several built-in types for this pattern, i.e. `google.protobuf.StringValue`.
+Protobuf has already "blessed" this pattern with several built-in types, i.e. `google.protobuf.StringValue`, `google.protobuf.Int32Value`, etc.
 
-`ts-proto` understands these wrapper types and will generate `google.protobuf.StringValue name = 1` as a `name: string | undefined`.
+`ts-proto` understands these wrapper types and "re-idiomizes" them by generating a `google.protobuf.StringValue name = 1` field as a `name: string | undefined`, and hides the `StringValue` implementation detail from your code (i.e. during `encode`/`decode` of the `name` field on the wire to external consumers, it's still read/written as a `StringValue` message field).
 
-This hides some of the `StringValue` mess and gives a more idiomatic way of using them.
-
-Granted, it's unfortunate this is not as simple as marking the `string` as `optional`.
+This makes dealing with `string | unset` in your code much nicer, albeit it's unfortunate that, in Protobuf core, this is not as simple as marking a `string name = 1` field as `optional`, i.e. you have to "dirty" your proto files a bit by knowing to use the `StringValue` convention.
 
 # Number Types
 
-Numbers are by default assumed to be plain JavaScript `numbers`. Since protobuf supports 64 bit numbers, but JavaScript doesn't, default behaviour is to throw an error if a number is detected to be larger than `Number.MAX_SAFE_INTEGER`. If 64 bit numbers are expected to be used, then use the `forceLong` option.
+Numbers are by default assumed to be plain JavaScript `number`s.
 
-Each of the protobuf basic number types maps as following depending on option used.
+This is fine for Protobuf types like `int32` and `float`, but 64-bit types like `int64` can't be 100% represented by JavaScript's `number` type, because `int64` can have larger/smaller values than `number`.
+ 
+ts-proto's default configuration (which is `forceLong=number`) is to still use `number` for 64-bit fields, and then throw an error if a value (at runtime) is larger than `Number.MAX_SAFE_INTEGER`.
+ 
+If you expect to use 64-bit / higher-than-`MAX_SAFE_INTEGER` values, then you can use the ts-proto `forceLong` option, which uses the [long](https://www.npmjs.com/package/long) npm package to support the entire range of 64-bit values.
 
-| Protobuf number types | Default Typescript types | `forceLong=long` types | `forceLong=string` types |
-| --------------------- | ------------------------ | ---------------------- | ------------------------ |
-| double                | number                   | number                 | number                   |
-| float                 | number                   | number                 | number                   |
-| int32                 | number                   | number                 | number                   |
-| int64                 | number\*                 | Long                   | string                   |
-| uint32                | number                   | number                 | number                   |
-| uint64                | number\*                 | Unsigned Long          | string                   |
-| sint32                | number                   | number                 | number                   |
-| sint64                | number\*                 | Long                   | string                   |
-| fixed32               | number                   | number                 | number                   |
-| fixed64               | number\*                 | Unsigned Long          | string                   |
-| sfixed32              | number                   | number                 | number                   |
-| sfixed64              | number\*                 | Long                   | string                   |
+The protobuf number types map to JavaScript types based on the `forceLong` config option:
+
+| Protobuf number types | Default/`forceLong=number` | `forceLong=long` | `forceLong=string` |
+| --------------------- | -------------------------- | ---------------- | ------------------ |
+| double                | number                     | number           | number             |
+| float                 | number                     | number           | number             |
+| int32                 | number                     | number           | number             |
+| int64                 | number\*                   | Long             | string             |
+| uint32                | number                     | number           | number             |
+| uint64                | number\*                   | Unsigned Long    | string             |
+| sint32                | number                     | number           | number             |
+| sint64                | number\*                   | Long             | string             |
+| fixed32               | number                     | number           | number             |
+| fixed64               | number\*                   | Unsigned Long    | string             |
+| sfixed32              | number                     | number           | number             |
+| sfixed64              | number\*                   | Long             | string             |
 
 Where (\*) indicates they might throw an error at runtime.
 

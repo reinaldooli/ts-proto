@@ -1,7 +1,6 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import * as Long from 'long';
-import { Writer, Reader } from 'protobufjs/minimal';
-
+import { Writer, Reader, util, configure } from 'protobufjs/minimal';
 
 export interface Timestamp {
   /**
@@ -27,8 +26,7 @@ export interface Duration {
  *  Empty is only used as a message for rpc calls that
  *  return no data.
  */
-export interface Empty {
-}
+export interface Empty {}
 
 /**
  *  An optional string value used for RPCs that update a record.
@@ -68,8 +66,7 @@ const baseDuration: object = {
   nanos: 0,
 };
 
-const baseEmpty: object = {
-};
+const baseEmpty: object = {};
 
 const baseOptString: object = {
   val: '',
@@ -93,23 +90,28 @@ const baseID: object = {
 };
 
 interface Rpc {
-
-  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, request: any, metadata: grpc.Metadata | undefined): Promise<any>;
-
+  unary<T extends UnaryMethodDefinitionish>(
+    methodDesc: T,
+    request: any,
+    metadata: grpc.Metadata | undefined
+  ): Promise<any>;
 }
 
 export class GrpcWebImpl implements Rpc {
-
   private host: string;
 
-  private options: { transport?: grpc.TransportFactory, debug?: boolean };
+  private options: { transport?: grpc.TransportFactory; debug?: boolean };
 
-  constructor(host: string, options: { transport?: grpc.TransportFactory, debug?: boolean }) {
+  constructor(host: string, options: { transport?: grpc.TransportFactory; debug?: boolean }) {
     this.host = host;
     this.options = options;
   }
 
-  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, _request: any, metadata: grpc.Metadata | undefined): Promise<any> {
+  unary<T extends UnaryMethodDefinitionish>(
+    methodDesc: T,
+    _request: any,
+    metadata: grpc.Metadata | undefined
+  ): Promise<any> {
     const request = { ..._request, ...methodDesc.requestType };
     return new Promise((resolve, reject) => {
       grpc.unary(methodDesc, {
@@ -131,15 +133,16 @@ export class GrpcWebImpl implements Rpc {
       });
     });
   }
-
 }
 
 function longToNumber(long: Long) {
   if (long.gt(Number.MAX_SAFE_INTEGER)) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
   }
   return long.toNumber();
 }
+
+export const protobufPackage = 'pb';
 
 export const Timestamp = {
   encode(message: Timestamp, writer: Writer = Writer.create()): Writer {
@@ -197,8 +200,8 @@ export const Timestamp = {
   },
   toJSON(message: Timestamp): unknown {
     const obj: any = {};
-    obj.seconds = message.seconds || 0;
-    obj.nanos = message.nanos || 0;
+    message.seconds !== undefined && (obj.seconds = message.seconds);
+    message.nanos !== undefined && (obj.nanos = message.nanos);
     return obj;
   },
 };
@@ -245,7 +248,7 @@ export const Duration = {
   },
   toJSON(message: Duration): unknown {
     const obj: any = {};
-    obj.nanos = message.nanos || 0;
+    message.nanos !== undefined && (obj.nanos = message.nanos);
     return obj;
   },
 };
@@ -324,7 +327,7 @@ export const OptString = {
   },
   toJSON(message: OptString): unknown {
     const obj: any = {};
-    obj.val = message.val || '';
+    message.val !== undefined && (obj.val = message.val);
     return obj;
   },
 };
@@ -371,7 +374,7 @@ export const OptInt64 = {
   },
   toJSON(message: OptInt64): unknown {
     const obj: any = {};
-    obj.val = message.val || 0;
+    message.val !== undefined && (obj.val = message.val);
     return obj;
   },
 };
@@ -418,7 +421,7 @@ export const OptBool = {
   },
   toJSON(message: OptBool): unknown {
     const obj: any = {};
-    obj.val = message.val || false;
+    message.val !== undefined && (obj.val = message.val);
     return obj;
   },
 };
@@ -463,16 +466,21 @@ export const IPNet = {
     const message = { ...baseIPNet } as IPNet;
     if (object.ip !== undefined && object.ip !== null) {
       message.ip = object.ip;
+    } else {
+      message.ip = new Uint8Array();
     }
     if (object.mask !== undefined && object.mask !== null) {
       message.mask = object.mask;
+    } else {
+      message.mask = new Uint8Array();
     }
     return message;
   },
   toJSON(message: IPNet): unknown {
     const obj: any = {};
-    obj.ip = message.ip !== undefined ? base64FromBytes(message.ip) : undefined;
-    obj.mask = message.mask !== undefined ? base64FromBytes(message.mask) : undefined;
+    message.ip !== undefined && (obj.ip = base64FromBytes(message.ip !== undefined ? message.ip : new Uint8Array()));
+    message.mask !== undefined &&
+      (obj.mask = base64FromBytes(message.mask !== undefined ? message.mask : new Uint8Array()));
     return obj;
   },
 };
@@ -519,20 +527,24 @@ export const ID = {
   },
   toJSON(message: ID): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
 
 import UnaryMethodDefinition = grpc.UnaryMethodDefinition;
 type UnaryMethodDefinitionish = UnaryMethodDefinition<any, any>;
+if (util.Long !== (Long as any)) {
+  util.Long = Long as any;
+  configure();
+}
 
 interface WindowBase64 {
   atob(b64: string): string;
   btoa(bin: string): string;
 }
 
-const windowBase64 = (globalThis as unknown as WindowBase64);
+const windowBase64 = (globalThis as unknown) as WindowBase64;
 const atob = windowBase64.atob || ((b64: string) => Buffer.from(b64, 'base64').toString('binary'));
 const btoa = windowBase64.btoa || ((bin: string) => Buffer.from(bin, 'binary').toString('base64'));
 
@@ -540,7 +552,7 @@ function bytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; ++i) {
-      arr[i] = bin.charCodeAt(i);
+    arr[i] = bin.charCodeAt(i);
   }
   return arr;
 }

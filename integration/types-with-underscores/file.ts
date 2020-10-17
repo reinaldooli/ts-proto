@@ -1,28 +1,20 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface Baz {
   foo: FooBar | undefined;
 }
 
-export interface FooBar {
-}
+export interface FooBar {}
 
-const baseBaz: object = {
-};
+const baseBaz: object = {};
 
-const baseFooBar: object = {
-};
+const baseFooBar: object = {};
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = '';
 
 export const Baz = {
   encode(message: Baz, writer: Writer = Writer.create()): Writer {
-    if (message.foo !== undefined && message.foo !== undefined) {
+    if (message.foo !== undefined) {
       FooBar.encode(message.foo, writer.uint32(10).fork()).ldelim();
     }
     return writer;
@@ -64,7 +56,7 @@ export const Baz = {
   },
   toJSON(message: Baz): unknown {
     const obj: any = {};
-    obj.foo = message.foo ? FooBar.toJSON(message.foo) : undefined;
+    message.foo !== undefined && (obj.foo = message.foo ? FooBar.toJSON(message.foo) : undefined);
     return obj;
   },
 };

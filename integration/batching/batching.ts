@@ -1,6 +1,5 @@
 import { Reader, Writer } from 'protobufjs/minimal';
 
-
 export interface BatchQueryRequest {
   ids: string[];
 }
@@ -34,8 +33,7 @@ export interface WriteMethodRequest {
   id: string;
 }
 
-export interface WriteMethodResponse {
-}
+export interface WriteMethodResponse {}
 
 export interface Entity {
   id: string;
@@ -75,8 +73,7 @@ const baseWriteMethodRequest: object = {
   id: '',
 };
 
-const baseWriteMethodResponse: object = {
-};
+const baseWriteMethodResponse: object = {};
 
 const baseEntity: object = {
   id: '',
@@ -84,7 +81,6 @@ const baseEntity: object = {
 };
 
 export interface EntityService {
-
   BatchQuery(request: BatchQueryRequest): Promise<BatchQueryResponse>;
 
   BatchMapQuery(request: BatchMapQueryRequest): Promise<BatchMapQueryResponse>;
@@ -98,11 +94,9 @@ export interface EntityService {
    *  Add a method that won't get cached
    */
   WriteMethod(request: WriteMethodRequest): Promise<WriteMethodResponse>;
-
 }
 
 export class EntityServiceClientImpl implements EntityService {
-
   private readonly rpc: Rpc;
 
   constructor(rpc: Rpc) {
@@ -111,35 +105,34 @@ export class EntityServiceClientImpl implements EntityService {
 
   BatchQuery(request: BatchQueryRequest): Promise<BatchQueryResponse> {
     const data = BatchQueryRequest.encode(request).finish();
-    const promise = this.rpc.request("batching.EntityService", "BatchQuery", data);
-    return promise.then(data => BatchQueryResponse.decode(new Reader(data)));
+    const promise = this.rpc.request('batching.EntityService', 'BatchQuery', data);
+    return promise.then((data) => BatchQueryResponse.decode(new Reader(data)));
   }
 
   BatchMapQuery(request: BatchMapQueryRequest): Promise<BatchMapQueryResponse> {
     const data = BatchMapQueryRequest.encode(request).finish();
-    const promise = this.rpc.request("batching.EntityService", "BatchMapQuery", data);
-    return promise.then(data => BatchMapQueryResponse.decode(new Reader(data)));
+    const promise = this.rpc.request('batching.EntityService', 'BatchMapQuery', data);
+    return promise.then((data) => BatchMapQueryResponse.decode(new Reader(data)));
   }
 
   GetOnlyMethod(request: GetOnlyMethodRequest): Promise<GetOnlyMethodResponse> {
     const data = GetOnlyMethodRequest.encode(request).finish();
-    const promise = this.rpc.request("batching.EntityService", "GetOnlyMethod", data);
-    return promise.then(data => GetOnlyMethodResponse.decode(new Reader(data)));
+    const promise = this.rpc.request('batching.EntityService', 'GetOnlyMethod', data);
+    return promise.then((data) => GetOnlyMethodResponse.decode(new Reader(data)));
   }
 
   WriteMethod(request: WriteMethodRequest): Promise<WriteMethodResponse> {
     const data = WriteMethodRequest.encode(request).finish();
-    const promise = this.rpc.request("batching.EntityService", "WriteMethod", data);
-    return promise.then(data => WriteMethodResponse.decode(new Reader(data)));
+    const promise = this.rpc.request('batching.EntityService', 'WriteMethod', data);
+    return promise.then((data) => WriteMethodResponse.decode(new Reader(data)));
   }
-
 }
 
 interface Rpc {
-
   request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
 }
+
+export const protobufPackage = 'batching';
 
 export const BatchQueryRequest = {
   encode(message: BatchQueryRequest, writer: Writer = Writer.create()): Writer {
@@ -189,7 +182,7 @@ export const BatchQueryRequest = {
   toJSON(message: BatchQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || '');
+      obj.ids = message.ids.map((e) => e);
     } else {
       obj.ids = [];
     }
@@ -245,7 +238,7 @@ export const BatchQueryResponse = {
   toJSON(message: BatchQueryResponse): unknown {
     const obj: any = {};
     if (message.entities) {
-      obj.entities = message.entities.map(e => e ? Entity.toJSON(e) : undefined);
+      obj.entities = message.entities.map((e) => (e ? Entity.toJSON(e) : undefined));
     } else {
       obj.entities = [];
     }
@@ -301,7 +294,7 @@ export const BatchMapQueryRequest = {
   toJSON(message: BatchMapQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || '');
+      obj.ids = message.ids.map((e) => e);
     } else {
       obj.ids = [];
     }
@@ -313,7 +306,7 @@ export const BatchMapQueryResponse = {
   encode(message: BatchMapQueryResponse, writer: Writer = Writer.create()): Writer {
     Object.entries(message.entities).forEach(([key, value]) => {
       BatchMapQueryResponse_EntitiesEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).ldelim();
-    })
+    });
     return writer;
   },
   decode(input: Uint8Array | Reader, length?: number): BatchMapQueryResponse {
@@ -343,7 +336,7 @@ export const BatchMapQueryResponse = {
     if (object.entities !== undefined && object.entities !== null) {
       Object.entries(object.entities).forEach(([key, value]) => {
         message.entities[key] = Entity.fromJSON(value);
-      })
+      });
     }
     return message;
   },
@@ -355,7 +348,7 @@ export const BatchMapQueryResponse = {
         if (value !== undefined) {
           message.entities[key] = Entity.fromPartial(value);
         }
-      })
+      });
     }
     return message;
   },
@@ -364,8 +357,8 @@ export const BatchMapQueryResponse = {
     obj.entities = {};
     if (message.entities) {
       Object.entries(message.entities).forEach(([k, v]) => {
-        obj.entities[k] = v;
-      })
+        obj.entities[k] = Entity.toJSON(v);
+      });
     }
     return obj;
   },
@@ -429,8 +422,8 @@ export const BatchMapQueryResponse_EntitiesEntry = {
   },
   toJSON(message: BatchMapQueryResponse_EntitiesEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || '';
-    obj.value = message.value ? Entity.toJSON(message.value) : undefined;
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value ? Entity.toJSON(message.value) : undefined);
     return obj;
   },
 };
@@ -477,7 +470,7 @@ export const GetOnlyMethodRequest = {
   },
   toJSON(message: GetOnlyMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
@@ -526,7 +519,7 @@ export const GetOnlyMethodResponse = {
   },
   toJSON(message: GetOnlyMethodResponse): unknown {
     const obj: any = {};
-    obj.entity = message.entity ? Entity.toJSON(message.entity) : undefined;
+    message.entity !== undefined && (obj.entity = message.entity ? Entity.toJSON(message.entity) : undefined);
     return obj;
   },
 };
@@ -573,7 +566,7 @@ export const WriteMethodRequest = {
   },
   toJSON(message: WriteMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
@@ -666,8 +659,8 @@ export const Entity = {
   },
   toJSON(message: Entity): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
-    obj.name = message.name || '';
+    message.id !== undefined && (obj.id = message.id);
+    message.name !== undefined && (obj.name = message.name);
     return obj;
   },
 };

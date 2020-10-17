@@ -38,7 +38,6 @@ async function main() {
 
 main()
   .then(() => {
-    process.stderr.write('GEN DONE');
     process.exit(0);
   })
   .catch((e) => {

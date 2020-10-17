@@ -2053,6 +2053,7 @@
                  * @property {number|null} [oneofIndex] FieldDescriptorProto oneofIndex
                  * @property {string|null} [jsonName] FieldDescriptorProto jsonName
                  * @property {google.protobuf.FieldOptions|null} [options] FieldDescriptorProto options
+                 * @property {boolean|null} [proto3Optional] FieldDescriptorProto proto3Optional
                  */
     
                 /**
@@ -2151,6 +2152,14 @@
                 FieldDescriptorProto.prototype.options = null;
     
                 /**
+                 * FieldDescriptorProto proto3Optional.
+                 * @member {boolean} proto3Optional
+                 * @memberof google.protobuf.FieldDescriptorProto
+                 * @instance
+                 */
+                FieldDescriptorProto.prototype.proto3Optional = false;
+    
+                /**
                  * Creates a new FieldDescriptorProto instance using the specified properties.
                  * @function create
                  * @memberof google.protobuf.FieldDescriptorProto
@@ -2194,6 +2203,8 @@
                         writer.uint32(/* id 9, wireType 0 =*/72).int32(message.oneofIndex);
                     if (message.jsonName != null && Object.hasOwnProperty.call(message, "jsonName"))
                         writer.uint32(/* id 10, wireType 2 =*/82).string(message.jsonName);
+                    if (message.proto3Optional != null && Object.hasOwnProperty.call(message, "proto3Optional"))
+                        writer.uint32(/* id 17, wireType 0 =*/136).bool(message.proto3Optional);
                     return writer;
                 };
     
@@ -2257,6 +2268,9 @@
                             break;
                         case 8:
                             message.options = $root.google.protobuf.FieldOptions.decode(reader, reader.uint32());
+                            break;
+                        case 17:
+                            message.proto3Optional = reader.bool();
                             break;
                         default:
                             reader.skipType(tag & 7);
@@ -2352,6 +2366,9 @@
                         if (error)
                             return "options." + error;
                     }
+                    if (message.proto3Optional != null && message.hasOwnProperty("proto3Optional"))
+                        if (typeof message.proto3Optional !== "boolean")
+                            return "proto3Optional: boolean expected";
                     return null;
                 };
     
@@ -2474,6 +2491,8 @@
                             throw TypeError(".google.protobuf.FieldDescriptorProto.options: object expected");
                         message.options = $root.google.protobuf.FieldOptions.fromObject(object.options);
                     }
+                    if (object.proto3Optional != null)
+                        message.proto3Optional = Boolean(object.proto3Optional);
                     return message;
                 };
     
@@ -2501,6 +2520,7 @@
                         object.options = null;
                         object.oneofIndex = 0;
                         object.jsonName = "";
+                        object.proto3Optional = false;
                     }
                     if (message.name != null && message.hasOwnProperty("name"))
                         object.name = message.name;
@@ -2522,6 +2542,8 @@
                         object.oneofIndex = message.oneofIndex;
                     if (message.jsonName != null && message.hasOwnProperty("jsonName"))
                         object.jsonName = message.jsonName;
+                    if (message.proto3Optional != null && message.hasOwnProperty("proto3Optional"))
+                        object.proto3Optional = message.proto3Optional;
                     return object;
                 };
     
@@ -4313,7 +4335,7 @@
                  * @memberof google.protobuf.FileOptions
                  * @instance
                  */
-                FileOptions.prototype.ccEnableArenas = false;
+                FileOptions.prototype.ccEnableArenas = true;
     
                 /**
                  * FileOptions objcClassPrefix.
@@ -4762,7 +4784,7 @@
                         object.javaGenerateEqualsAndHash = false;
                         object.deprecated = false;
                         object.javaStringCheckUtf8 = false;
-                        object.ccEnableArenas = false;
+                        object.ccEnableArenas = true;
                         object.objcClassPrefix = "";
                         object.csharpNamespace = "";
                         object.swiftPrefix = "";
@@ -8964,6 +8986,7 @@
                      * @memberof google.protobuf.compiler
                      * @interface ICodeGeneratorResponse
                      * @property {string|null} [error] CodeGeneratorResponse error
+                     * @property {number|Long|null} [supportedFeatures] CodeGeneratorResponse supportedFeatures
                      * @property {Array.<google.protobuf.compiler.CodeGeneratorResponse.File>|null} [file] CodeGeneratorResponse file
                      */
     
@@ -8990,6 +9013,14 @@
                      * @instance
                      */
                     CodeGeneratorResponse.prototype.error = "";
+    
+                    /**
+                     * CodeGeneratorResponse supportedFeatures.
+                     * @member {number|Long} supportedFeatures
+                     * @memberof google.protobuf.compiler.CodeGeneratorResponse
+                     * @instance
+                     */
+                    CodeGeneratorResponse.prototype.supportedFeatures = $util.Long ? $util.Long.fromBits(0,0,true) : 0;
     
                     /**
                      * CodeGeneratorResponse file.
@@ -9025,6 +9056,8 @@
                             writer = $Writer.create();
                         if (message.error != null && Object.hasOwnProperty.call(message, "error"))
                             writer.uint32(/* id 1, wireType 2 =*/10).string(message.error);
+                        if (message.supportedFeatures != null && Object.hasOwnProperty.call(message, "supportedFeatures"))
+                            writer.uint32(/* id 2, wireType 0 =*/16).uint64(message.supportedFeatures);
                         if (message.file != null && message.file.length)
                             for (var i = 0; i < message.file.length; ++i)
                                 $root.google.protobuf.compiler.CodeGeneratorResponse.File.encode(message.file[i], writer.uint32(/* id 15, wireType 2 =*/122).fork()).ldelim();
@@ -9064,6 +9097,9 @@
                             switch (tag >>> 3) {
                             case 1:
                                 message.error = reader.string();
+                                break;
+                            case 2:
+                                message.supportedFeatures = reader.uint64();
                                 break;
                             case 15:
                                 if (!(message.file && message.file.length))
@@ -9108,6 +9144,9 @@
                         if (message.error != null && message.hasOwnProperty("error"))
                             if (!$util.isString(message.error))
                                 return "error: string expected";
+                        if (message.supportedFeatures != null && message.hasOwnProperty("supportedFeatures"))
+                            if (!$util.isInteger(message.supportedFeatures) && !(message.supportedFeatures && $util.isInteger(message.supportedFeatures.low) && $util.isInteger(message.supportedFeatures.high)))
+                                return "supportedFeatures: integer|Long expected";
                         if (message.file != null && message.hasOwnProperty("file")) {
                             if (!Array.isArray(message.file))
                                 return "file: array expected";
@@ -9134,6 +9173,15 @@
                         var message = new $root.google.protobuf.compiler.CodeGeneratorResponse();
                         if (object.error != null)
                             message.error = String(object.error);
+                        if (object.supportedFeatures != null)
+                            if ($util.Long)
+                                (message.supportedFeatures = $util.Long.fromValue(object.supportedFeatures)).unsigned = true;
+                            else if (typeof object.supportedFeatures === "string")
+                                message.supportedFeatures = parseInt(object.supportedFeatures, 10);
+                            else if (typeof object.supportedFeatures === "number")
+                                message.supportedFeatures = object.supportedFeatures;
+                            else if (typeof object.supportedFeatures === "object")
+                                message.supportedFeatures = new $util.LongBits(object.supportedFeatures.low >>> 0, object.supportedFeatures.high >>> 0).toNumber(true);
                         if (object.file) {
                             if (!Array.isArray(object.file))
                                 throw TypeError(".google.protobuf.compiler.CodeGeneratorResponse.file: array expected");
@@ -9162,10 +9210,21 @@
                         var object = {};
                         if (options.arrays || options.defaults)
                             object.file = [];
-                        if (options.defaults)
+                        if (options.defaults) {
                             object.error = "";
+                            if ($util.Long) {
+                                var long = new $util.Long(0, 0, true);
+                                object.supportedFeatures = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                            } else
+                                object.supportedFeatures = options.longs === String ? "0" : 0;
+                        }
                         if (message.error != null && message.hasOwnProperty("error"))
                             object.error = message.error;
+                        if (message.supportedFeatures != null && message.hasOwnProperty("supportedFeatures"))
+                            if (typeof message.supportedFeatures === "number")
+                                object.supportedFeatures = options.longs === String ? String(message.supportedFeatures) : message.supportedFeatures;
+                            else
+                                object.supportedFeatures = options.longs === String ? $util.Long.prototype.toString.call(message.supportedFeatures) : options.longs === Number ? new $util.LongBits(message.supportedFeatures.low >>> 0, message.supportedFeatures.high >>> 0).toNumber(true) : message.supportedFeatures;
                         if (message.file && message.file.length) {
                             object.file = [];
                             for (var j = 0; j < message.file.length; ++j)
@@ -9185,6 +9244,20 @@
                         return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
                     };
     
+                    /**
+                     * Feature enum.
+                     * @name google.protobuf.compiler.CodeGeneratorResponse.Feature
+                     * @enum {number}
+                     * @property {number} FEATURE_NONE=0 FEATURE_NONE value
+                     * @property {number} FEATURE_PROTO3_OPTIONAL=1 FEATURE_PROTO3_OPTIONAL value
+                     */
+                    CodeGeneratorResponse.Feature = (function() {
+                        var valuesById = {}, values = Object.create(valuesById);
+                        values[valuesById[0] = "FEATURE_NONE"] = 0;
+                        values[valuesById[1] = "FEATURE_PROTO3_OPTIONAL"] = 1;
+                        return values;
+                    })();
+    
                     CodeGeneratorResponse.File = (function() {
     
                         /**
@@ -9194,6 +9267,7 @@
                          * @property {string|null} [name] File name
                          * @property {string|null} [insertionPoint] File insertionPoint
                          * @property {string|null} [content] File content
+                         * @property {google.protobuf.GeneratedCodeInfo|null} [generatedCodeInfo] File generatedCodeInfo
                          */
     
                         /**
@@ -9236,6 +9310,14 @@
                         File.prototype.content = "";
     
                         /**
+                         * File generatedCodeInfo.
+                         * @member {google.protobuf.GeneratedCodeInfo|null|undefined} generatedCodeInfo
+                         * @memberof google.protobuf.compiler.CodeGeneratorResponse.File
+                         * @instance
+                         */
+                        File.prototype.generatedCodeInfo = null;
+    
+                        /**
                          * Creates a new File instance using the specified properties.
                          * @function create
                          * @memberof google.protobuf.compiler.CodeGeneratorResponse.File
@@ -9265,6 +9347,8 @@
                                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.insertionPoint);
                             if (message.content != null && Object.hasOwnProperty.call(message, "content"))
                                 writer.uint32(/* id 15, wireType 2 =*/122).string(message.content);
+                            if (message.generatedCodeInfo != null && Object.hasOwnProperty.call(message, "generatedCodeInfo"))
+                                $root.google.protobuf.GeneratedCodeInfo.encode(message.generatedCodeInfo, writer.uint32(/* id 16, wireType 2 =*/130).fork()).ldelim();
                             return writer;
                         };
     
@@ -9307,6 +9391,9 @@
                                     break;
                                 case 15:
                                     message.content = reader.string();
+                                    break;
+                                case 16:
+                                    message.generatedCodeInfo = $root.google.protobuf.GeneratedCodeInfo.decode(reader, reader.uint32());
                                     break;
                                 default:
                                     reader.skipType(tag & 7);
@@ -9352,6 +9439,11 @@
                             if (message.content != null && message.hasOwnProperty("content"))
                                 if (!$util.isString(message.content))
                                     return "content: string expected";
+                            if (message.generatedCodeInfo != null && message.hasOwnProperty("generatedCodeInfo")) {
+                                var error = $root.google.protobuf.GeneratedCodeInfo.verify(message.generatedCodeInfo);
+                                if (error)
+                                    return "generatedCodeInfo." + error;
+                            }
                             return null;
                         };
     
@@ -9373,6 +9465,11 @@
                                 message.insertionPoint = String(object.insertionPoint);
                             if (object.content != null)
                                 message.content = String(object.content);
+                            if (object.generatedCodeInfo != null) {
+                                if (typeof object.generatedCodeInfo !== "object")
+                                    throw TypeError(".google.protobuf.compiler.CodeGeneratorResponse.File.generatedCodeInfo: object expected");
+                                message.generatedCodeInfo = $root.google.protobuf.GeneratedCodeInfo.fromObject(object.generatedCodeInfo);
+                            }
                             return message;
                         };
     
@@ -9393,6 +9490,7 @@
                                 object.name = "";
                                 object.insertionPoint = "";
                                 object.content = "";
+                                object.generatedCodeInfo = null;
                             }
                             if (message.name != null && message.hasOwnProperty("name"))
                                 object.name = message.name;
@@ -9400,6 +9498,8 @@
                                 object.insertionPoint = message.insertionPoint;
                             if (message.content != null && message.hasOwnProperty("content"))
                                 object.content = message.content;
+                            if (message.generatedCodeInfo != null && message.hasOwnProperty("generatedCodeInfo"))
+                                object.generatedCodeInfo = $root.google.protobuf.GeneratedCodeInfo.toObject(message.generatedCodeInfo, options);
                             return object;
                         };
     

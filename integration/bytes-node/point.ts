@@ -1,6 +1,5 @@
 import { Writer, Reader } from 'protobufjs/minimal';
 
-
 export interface Point {
   data: Buffer;
 }
@@ -9,11 +8,7 @@ const basePoint: object = {
   data: undefined,
 };
 
-interface Rpc {
-
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-
-}
+export const protobufPackage = '';
 
 export const Point = {
   encode(message: Point, writer: Writer = Writer.create()): Writer {
@@ -48,12 +43,15 @@ export const Point = {
     const message = { ...basePoint } as Point;
     if (object.data !== undefined && object.data !== null) {
       message.data = object.data;
+    } else {
+      message.data = new Buffer(0);
     }
     return message;
   },
   toJSON(message: Point): unknown {
     const obj: any = {};
-    obj.data = message.data !== undefined ? base64FromBytes(message.data) : undefined;
+    message.data !== undefined &&
+      (obj.data = base64FromBytes(message.data !== undefined ? message.data : new Buffer(0)));
     return obj;
   },
 };
@@ -63,7 +61,7 @@ interface WindowBase64 {
   btoa(bin: string): string;
 }
 
-const windowBase64 = (globalThis as unknown as WindowBase64);
+const windowBase64 = (globalThis as unknown) as WindowBase64;
 const atob = windowBase64.atob || ((b64: string) => Buffer.from(b64, 'base64').toString('binary'));
 const btoa = windowBase64.btoa || ((bin: string) => Buffer.from(bin, 'binary').toString('base64'));
 
@@ -71,7 +69,7 @@ function bytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; ++i) {
-      arr[i] = bin.charCodeAt(i);
+    arr[i] = bin.charCodeAt(i);
   }
   return arr;
 }

@@ -2,7 +2,6 @@ import * as DataLoader from 'dataloader';
 import * as hash from 'object-hash';
 import { Reader, Writer } from 'protobufjs/minimal';
 
-
 export interface BatchQueryRequest {
   ids: string[];
 }
@@ -36,8 +35,7 @@ export interface WriteMethodRequest {
   id: string;
 }
 
-export interface WriteMethodResponse {
-}
+export interface WriteMethodResponse {}
 
 export interface Entity {
   id: string;
@@ -77,8 +75,7 @@ const baseWriteMethodRequest: object = {
   id: '',
 };
 
-const baseWriteMethodResponse: object = {
-};
+const baseWriteMethodResponse: object = {};
 
 const baseEntity: object = {
   id: '',
@@ -86,7 +83,6 @@ const baseEntity: object = {
 };
 
 export interface EntityService<Context extends DataLoaders> {
-
   BatchQuery(ctx: Context, request: BatchQueryRequest): Promise<BatchQueryResponse>;
 
   GetQuery(ctx: Context, id: string): Promise<Entity>;
@@ -104,11 +100,9 @@ export interface EntityService<Context extends DataLoaders> {
    *  Add a method that won't get cached
    */
   WriteMethod(ctx: Context, request: WriteMethodRequest): Promise<WriteMethodResponse>;
-
 }
 
 export class EntityServiceClientImpl<Context extends DataLoaders> implements EntityService<Context> {
-
   private readonly rpc: Rpc<Context>;
 
   constructor(rpc: Rpc<Context>) {
@@ -116,72 +110,84 @@ export class EntityServiceClientImpl<Context extends DataLoaders> implements Ent
   }
 
   GetQuery(ctx: Context, id: string): Promise<Entity> {
-    const dl = ctx.getDataLoader("batching.EntityService.BatchQuery", () => {
-      return new DataLoader<string, Entity>((ids) => {
-        const request = { ids };
-        return this.BatchQuery(ctx, request).then(res => res.entities);
-      }, { cacheKeyFn: hash });
+    const dl = ctx.getDataLoader('batching.EntityService.BatchQuery', () => {
+      return new DataLoader<string, Entity>(
+        (ids) => {
+          const request = { ids };
+          return this.BatchQuery(ctx, request).then((res) => res.entities);
+        },
+        { cacheKeyFn: hash, ...ctx.rpcDataLoaderOptions }
+      );
     });
     return dl.load(id);
   }
 
   BatchQuery(ctx: Context, request: BatchQueryRequest): Promise<BatchQueryResponse> {
     const data = BatchQueryRequest.encode(request).finish();
-    const promise = this.rpc.request(ctx, "batching.EntityService", "BatchQuery", data);
-    return promise.then(data => BatchQueryResponse.decode(new Reader(data)));
+    const promise = this.rpc.request(ctx, 'batching.EntityService', 'BatchQuery', data);
+    return promise.then((data) => BatchQueryResponse.decode(new Reader(data)));
   }
 
   GetMapQuery(ctx: Context, id: string): Promise<Entity> {
-    const dl = ctx.getDataLoader("batching.EntityService.BatchMapQuery", () => {
-      return new DataLoader<string, Entity>((ids) => {
-        const request = { ids };
-        return this.BatchMapQuery(ctx, request).then(res => {
-          return ids.map(key => res.entities[key]);
-        })
-      }, { cacheKeyFn: hash });
+    const dl = ctx.getDataLoader('batching.EntityService.BatchMapQuery', () => {
+      return new DataLoader<string, Entity>(
+        (ids) => {
+          const request = { ids };
+          return this.BatchMapQuery(ctx, request).then((res) => {
+            return ids.map((key) => res.entities[key]);
+          });
+        },
+        { cacheKeyFn: hash, ...ctx.rpcDataLoaderOptions }
+      );
     });
     return dl.load(id);
   }
 
   BatchMapQuery(ctx: Context, request: BatchMapQueryRequest): Promise<BatchMapQueryResponse> {
     const data = BatchMapQueryRequest.encode(request).finish();
-    const promise = this.rpc.request(ctx, "batching.EntityService", "BatchMapQuery", data);
-    return promise.then(data => BatchMapQueryResponse.decode(new Reader(data)));
+    const promise = this.rpc.request(ctx, 'batching.EntityService', 'BatchMapQuery', data);
+    return promise.then((data) => BatchMapQueryResponse.decode(new Reader(data)));
   }
 
   GetOnlyMethod(ctx: Context, request: GetOnlyMethodRequest): Promise<GetOnlyMethodResponse> {
-    const dl = ctx.getDataLoader("batching.EntityService.GetOnlyMethod", () => {
-      return new DataLoader<GetOnlyMethodRequest, GetOnlyMethodResponse>((requests) => {
-        const responses = requests.map(async request => {
-          const data = GetOnlyMethodRequest.encode(request).finish();
-          const response = await this.rpc.request(ctx, "batching.EntityService", "GetOnlyMethod", data);
-          return GetOnlyMethodResponse.decode(new Reader(response));
-        })
-        return Promise.all(responses);
-      }, { cacheKeyFn: hash });
+    const dl = ctx.getDataLoader('batching.EntityService.GetOnlyMethod', () => {
+      return new DataLoader<GetOnlyMethodRequest, GetOnlyMethodResponse>(
+        (requests) => {
+          const responses = requests.map(async (request) => {
+            const data = GetOnlyMethodRequest.encode(request).finish();
+            const response = await this.rpc.request(ctx, 'batching.EntityService', 'GetOnlyMethod', data);
+            return GetOnlyMethodResponse.decode(new Reader(response));
+          });
+          return Promise.all(responses);
+        },
+        { cacheKeyFn: hash, ...ctx.rpcDataLoaderOptions }
+      );
     });
     return dl.load(request);
   }
 
   WriteMethod(ctx: Context, request: WriteMethodRequest): Promise<WriteMethodResponse> {
     const data = WriteMethodRequest.encode(request).finish();
-    const promise = this.rpc.request(ctx, "batching.EntityService", "WriteMethod", data);
-    return promise.then(data => WriteMethodResponse.decode(new Reader(data)));
+    const promise = this.rpc.request(ctx, 'batching.EntityService', 'WriteMethod', data);
+    return promise.then((data) => WriteMethodResponse.decode(new Reader(data)));
   }
-
 }
 
 interface Rpc<Context> {
-
   request(ctx: Context, service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
+}
 
+export interface DataLoaderOptions {
+  cache?: boolean;
 }
 
 export interface DataLoaders {
+  rpcDataLoaderOptions?: DataLoaderOptions;
 
   getDataLoader<T>(identifier: string, constructorFn: () => T): T;
-
 }
+
+export const protobufPackage = 'batching';
 
 export const BatchQueryRequest = {
   encode(message: BatchQueryRequest, writer: Writer = Writer.create()): Writer {
@@ -231,7 +237,7 @@ export const BatchQueryRequest = {
   toJSON(message: BatchQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || '');
+      obj.ids = message.ids.map((e) => e);
     } else {
       obj.ids = [];
     }
@@ -287,7 +293,7 @@ export const BatchQueryResponse = {
   toJSON(message: BatchQueryResponse): unknown {
     const obj: any = {};
     if (message.entities) {
-      obj.entities = message.entities.map(e => e ? Entity.toJSON(e) : undefined);
+      obj.entities = message.entities.map((e) => (e ? Entity.toJSON(e) : undefined));
     } else {
       obj.entities = [];
     }
@@ -343,7 +349,7 @@ export const BatchMapQueryRequest = {
   toJSON(message: BatchMapQueryRequest): unknown {
     const obj: any = {};
     if (message.ids) {
-      obj.ids = message.ids.map(e => e || '');
+      obj.ids = message.ids.map((e) => e);
     } else {
       obj.ids = [];
     }
@@ -355,7 +361,7 @@ export const BatchMapQueryResponse = {
   encode(message: BatchMapQueryResponse, writer: Writer = Writer.create()): Writer {
     Object.entries(message.entities).forEach(([key, value]) => {
       BatchMapQueryResponse_EntitiesEntry.encode({ key: key as any, value }, writer.uint32(10).fork()).ldelim();
-    })
+    });
     return writer;
   },
   decode(input: Uint8Array | Reader, length?: number): BatchMapQueryResponse {
@@ -385,7 +391,7 @@ export const BatchMapQueryResponse = {
     if (object.entities !== undefined && object.entities !== null) {
       Object.entries(object.entities).forEach(([key, value]) => {
         message.entities[key] = Entity.fromJSON(value);
-      })
+      });
     }
     return message;
   },
@@ -397,7 +403,7 @@ export const BatchMapQueryResponse = {
         if (value !== undefined) {
           message.entities[key] = Entity.fromPartial(value);
         }
-      })
+      });
     }
     return message;
   },
@@ -406,8 +412,8 @@ export const BatchMapQueryResponse = {
     obj.entities = {};
     if (message.entities) {
       Object.entries(message.entities).forEach(([k, v]) => {
-        obj.entities[k] = v;
-      })
+        obj.entities[k] = Entity.toJSON(v);
+      });
     }
     return obj;
   },
@@ -471,8 +477,8 @@ export const BatchMapQueryResponse_EntitiesEntry = {
   },
   toJSON(message: BatchMapQueryResponse_EntitiesEntry): unknown {
     const obj: any = {};
-    obj.key = message.key || '';
-    obj.value = message.value ? Entity.toJSON(message.value) : undefined;
+    message.key !== undefined && (obj.key = message.key);
+    message.value !== undefined && (obj.value = message.value ? Entity.toJSON(message.value) : undefined);
     return obj;
   },
 };
@@ -519,7 +525,7 @@ export const GetOnlyMethodRequest = {
   },
   toJSON(message: GetOnlyMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
@@ -568,7 +574,7 @@ export const GetOnlyMethodResponse = {
   },
   toJSON(message: GetOnlyMethodResponse): unknown {
     const obj: any = {};
-    obj.entity = message.entity ? Entity.toJSON(message.entity) : undefined;
+    message.entity !== undefined && (obj.entity = message.entity ? Entity.toJSON(message.entity) : undefined);
     return obj;
   },
 };
@@ -615,7 +621,7 @@ export const WriteMethodRequest = {
   },
   toJSON(message: WriteMethodRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    message.id !== undefined && (obj.id = message.id);
     return obj;
   },
 };
@@ -708,8 +714,8 @@ export const Entity = {
   },
   toJSON(message: Entity): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
-    obj.name = message.name || '';
+    message.id !== undefined && (obj.id = message.id);
+    message.name !== undefined && (obj.name = message.name);
     return obj;
   },
 };

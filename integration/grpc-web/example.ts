@@ -1,7 +1,7 @@
 import { ID, Empty } from './types';
+import { BrowserHeaders } from 'browser-headers';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Writer, Reader } from 'protobufjs/minimal';
-
 
 export interface DashFlash {
   msg: string;
@@ -84,23 +84,19 @@ const baseDashAPICredsDeleteReq: object = {
 };
 
 export interface DashState {
-
-  UserSettings(request: Empty, metadata?: grpc.Metadata): Promise<DashUserSettingsState>;
-
+  UserSettings(request: DeepPartial<Empty>, metadata?: grpc.Metadata): Promise<DashUserSettingsState>;
 }
 
 export class DashStateClientImpl implements DashState {
-
   private readonly rpc: Rpc;
 
   constructor(rpc: Rpc) {
     this.rpc = rpc;
   }
 
-  UserSettings(request: Empty, metadata?: grpc.Metadata): Promise<DashUserSettingsState> {
-    return this.rpc.unary(DashStateUserSettingsDesc, request, metadata);
+  UserSettings(request: DeepPartial<Empty>, metadata?: grpc.Metadata): Promise<DashUserSettingsState> {
+    return this.rpc.unary(DashStateUserSettingsDesc, Empty.fromPartial(request), metadata);
   }
-
 }
 
 /**
@@ -109,61 +105,69 @@ export class DashStateClientImpl implements DashState {
  * ----------------------
  */
 export interface DashAPICreds {
+  Create(request: DeepPartial<DashAPICredsCreateReq>, metadata?: grpc.Metadata): Promise<DashCred>;
 
-  Create(request: DashAPICredsCreateReq, metadata?: grpc.Metadata): Promise<DashCred>;
+  Update(request: DeepPartial<DashAPICredsUpdateReq>, metadata?: grpc.Metadata): Promise<DashCred>;
 
-  Update(request: DashAPICredsUpdateReq, metadata?: grpc.Metadata): Promise<DashCred>;
-
-  Delete(request: DashAPICredsDeleteReq, metadata?: grpc.Metadata): Promise<DashCred>;
-
+  Delete(request: DeepPartial<DashAPICredsDeleteReq>, metadata?: grpc.Metadata): Promise<DashCred>;
 }
 
 export class DashAPICredsClientImpl implements DashAPICreds {
-
   private readonly rpc: Rpc;
 
   constructor(rpc: Rpc) {
     this.rpc = rpc;
   }
 
-  Create(request: DashAPICredsCreateReq, metadata?: grpc.Metadata): Promise<DashCred> {
-    return this.rpc.unary(DashAPICredsCreateDesc, request, metadata);
+  Create(request: DeepPartial<DashAPICredsCreateReq>, metadata?: grpc.Metadata): Promise<DashCred> {
+    return this.rpc.unary(DashAPICredsCreateDesc, DashAPICredsCreateReq.fromPartial(request), metadata);
   }
 
-  Update(request: DashAPICredsUpdateReq, metadata?: grpc.Metadata): Promise<DashCred> {
-    return this.rpc.unary(DashAPICredsUpdateDesc, request, metadata);
+  Update(request: DeepPartial<DashAPICredsUpdateReq>, metadata?: grpc.Metadata): Promise<DashCred> {
+    return this.rpc.unary(DashAPICredsUpdateDesc, DashAPICredsUpdateReq.fromPartial(request), metadata);
   }
 
-  Delete(request: DashAPICredsDeleteReq, metadata?: grpc.Metadata): Promise<DashCred> {
-    return this.rpc.unary(DashAPICredsDeleteDesc, request, metadata);
+  Delete(request: DeepPartial<DashAPICredsDeleteReq>, metadata?: grpc.Metadata): Promise<DashCred> {
+    return this.rpc.unary(DashAPICredsDeleteDesc, DashAPICredsDeleteReq.fromPartial(request), metadata);
   }
-
 }
 
 interface Rpc {
-
-  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, request: any, metadata: grpc.Metadata | undefined): Promise<any>;
-
+  unary<T extends UnaryMethodDefinitionish>(
+    methodDesc: T,
+    request: any,
+    metadata: grpc.Metadata | undefined
+  ): Promise<any>;
 }
 
 export class GrpcWebImpl implements Rpc {
-
   private host: string;
 
-  private options: { transport?: grpc.TransportFactory, debug?: boolean };
+  private options: { transport?: grpc.TransportFactory; debug?: boolean; metadata?: grpc.Metadata | undefined };
 
-  constructor(host: string, options: { transport?: grpc.TransportFactory, debug?: boolean }) {
+  constructor(
+    host: string,
+    options: { transport?: grpc.TransportFactory; debug?: boolean; metadata?: grpc.Metadata | undefined }
+  ) {
     this.host = host;
     this.options = options;
   }
 
-  unary<T extends UnaryMethodDefinitionish>(methodDesc: T, _request: any, metadata: grpc.Metadata | undefined): Promise<any> {
+  unary<T extends UnaryMethodDefinitionish>(
+    methodDesc: T,
+    _request: any,
+    metadata: grpc.Metadata | undefined
+  ): Promise<any> {
     const request = { ..._request, ...methodDesc.requestType };
     return new Promise((resolve, reject) => {
+      const maybeCombinedMetadata =
+        metadata && this.options.metadata
+          ? new BrowserHeaders({ ...this.options?.metadata.headersMap, ...metadata?.headersMap })
+          : metadata || this.options.metadata;
       grpc.unary(methodDesc, {
         request,
         host: this.host,
-        metadata: metadata,
+        metadata: maybeCombinedMetadata,
         transport: this.options.transport,
         debug: this.options.debug,
         onEnd: function (response) {
@@ -179,8 +183,9 @@ export class GrpcWebImpl implements Rpc {
       });
     });
   }
-
 }
+
+export const protobufPackage = 'rpx';
 
 export enum DashFlash_Type {
   Undefined = 0,
@@ -193,19 +198,19 @@ export enum DashFlash_Type {
 export function dashFlash_TypeFromJSON(object: any): DashFlash_Type {
   switch (object) {
     case 0:
-    case "Undefined":
+    case 'Undefined':
       return DashFlash_Type.Undefined;
     case 1:
-    case "Success":
+    case 'Success':
       return DashFlash_Type.Success;
     case 2:
-    case "Warn":
+    case 'Warn':
       return DashFlash_Type.Warn;
     case 3:
-    case "Error":
+    case 'Error':
       return DashFlash_Type.Error;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return DashFlash_Type.UNRECOGNIZED;
   }
@@ -214,15 +219,15 @@ export function dashFlash_TypeFromJSON(object: any): DashFlash_Type {
 export function dashFlash_TypeToJSON(object: DashFlash_Type): string {
   switch (object) {
     case DashFlash_Type.Undefined:
-      return "Undefined";
+      return 'Undefined';
     case DashFlash_Type.Success:
-      return "Success";
+      return 'Success';
     case DashFlash_Type.Warn:
-      return "Warn";
+      return 'Warn';
     case DashFlash_Type.Error:
-      return "Error";
+      return 'Error';
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }
 
@@ -282,8 +287,8 @@ export const DashFlash = {
   },
   toJSON(message: DashFlash): unknown {
     const obj: any = {};
-    obj.msg = message.msg || '';
-    obj.type = dashFlash_TypeToJSON(message.type);
+    message.msg !== undefined && (obj.msg = message.msg);
+    message.type !== undefined && (obj.type = dashFlash_TypeToJSON(message.type));
     return obj;
   },
 };
@@ -365,10 +370,11 @@ export const DashUserSettingsState = {
   },
   toJSON(message: DashUserSettingsState): unknown {
     const obj: any = {};
-    obj.email = message.email || '';
-    obj.urls = message.urls ? DashUserSettingsState_URLs.toJSON(message.urls) : undefined;
+    message.email !== undefined && (obj.email = message.email);
+    message.urls !== undefined &&
+      (obj.urls = message.urls ? DashUserSettingsState_URLs.toJSON(message.urls) : undefined);
     if (message.flashes) {
-      obj.flashes = message.flashes.map(e => e ? DashFlash.toJSON(e) : undefined);
+      obj.flashes = message.flashes.map((e) => (e ? DashFlash.toJSON(e) : undefined));
     } else {
       obj.flashes = [];
     }
@@ -432,8 +438,8 @@ export const DashUserSettingsState_URLs = {
   },
   toJSON(message: DashUserSettingsState_URLs): unknown {
     const obj: any = {};
-    obj.connectGoogle = message.connectGoogle || '';
-    obj.connectGithub = message.connectGithub || '';
+    message.connectGoogle !== undefined && (obj.connectGoogle = message.connectGoogle);
+    message.connectGithub !== undefined && (obj.connectGithub = message.connectGithub);
     return obj;
   },
 };
@@ -524,10 +530,10 @@ export const DashCred = {
   },
   toJSON(message: DashCred): unknown {
     const obj: any = {};
-    obj.description = message.description || '';
-    obj.metadata = message.metadata || '';
-    obj.token = message.token || '';
-    obj.id = message.id ? ID.toJSON(message.id) : undefined;
+    message.description !== undefined && (obj.description = message.description);
+    message.metadata !== undefined && (obj.metadata = message.metadata);
+    message.token !== undefined && (obj.token = message.token);
+    message.id !== undefined && (obj.id = message.id ? ID.toJSON(message.id) : undefined);
     return obj;
   },
 };
@@ -588,8 +594,8 @@ export const DashAPICredsCreateReq = {
   },
   toJSON(message: DashAPICredsCreateReq): unknown {
     const obj: any = {};
-    obj.description = message.description || '';
-    obj.metadata = message.metadata || '';
+    message.description !== undefined && (obj.description = message.description);
+    message.metadata !== undefined && (obj.metadata = message.metadata);
     return obj;
   },
 };
@@ -680,10 +686,10 @@ export const DashAPICredsUpdateReq = {
   },
   toJSON(message: DashAPICredsUpdateReq): unknown {
     const obj: any = {};
-    obj.credSid = message.credSid || '';
-    obj.description = message.description || '';
-    obj.metadata = message.metadata || '';
-    obj.id = message.id ? ID.toJSON(message.id) : undefined;
+    message.credSid !== undefined && (obj.credSid = message.credSid);
+    message.description !== undefined && (obj.description = message.description);
+    message.metadata !== undefined && (obj.metadata = message.metadata);
+    message.id !== undefined && (obj.id = message.id ? ID.toJSON(message.id) : undefined);
     return obj;
   },
 };
@@ -746,92 +752,103 @@ export const DashAPICredsDeleteReq = {
   },
   toJSON(message: DashAPICredsDeleteReq): unknown {
     const obj: any = {};
-    obj.credSid = message.credSid || '';
-    obj.id = message.id ? ID.toJSON(message.id) : undefined;
+    message.credSid !== undefined && (obj.credSid = message.credSid);
+    message.id !== undefined && (obj.id = message.id ? ID.toJSON(message.id) : undefined);
     return obj;
   },
 };
 
 const DashStateDesc = {
-  serviceName: "rpx.DashState",
-}
+  serviceName: 'rpx.DashState',
+};
 const DashStateUserSettingsDesc: UnaryMethodDefinitionish = {
-  methodName: "UserSettings",
+  methodName: 'UserSettings',
   service: DashStateDesc,
   requestStream: false,
   responseStream: false,
   requestType: {
     serializeBinary: function serializeBinary() {
       return Empty.encode(this).finish();
-    }
-    ,
+    },
   } as any,
   responseType: {
     deserializeBinary: function deserializeBinary(data: Uint8Array) {
-      return { ...DashUserSettingsState.decode(data), toObject() { return this; } };
-    }
-    ,
+      return {
+        ...DashUserSettingsState.decode(data),
+        toObject() {
+          return this;
+        },
+      };
+    },
   } as any,
-}
+};
 const DashAPICredsDesc = {
-  serviceName: "rpx.DashAPICreds",
-}
+  serviceName: 'rpx.DashAPICreds',
+};
 const DashAPICredsCreateDesc: UnaryMethodDefinitionish = {
-  methodName: "Create",
+  methodName: 'Create',
   service: DashAPICredsDesc,
   requestStream: false,
   responseStream: false,
   requestType: {
     serializeBinary: function serializeBinary() {
       return DashAPICredsCreateReq.encode(this).finish();
-    }
-    ,
+    },
   } as any,
   responseType: {
     deserializeBinary: function deserializeBinary(data: Uint8Array) {
-      return { ...DashCred.decode(data), toObject() { return this; } };
-    }
-    ,
+      return {
+        ...DashCred.decode(data),
+        toObject() {
+          return this;
+        },
+      };
+    },
   } as any,
-}
+};
 const DashAPICredsUpdateDesc: UnaryMethodDefinitionish = {
-  methodName: "Update",
+  methodName: 'Update',
   service: DashAPICredsDesc,
   requestStream: false,
   responseStream: false,
   requestType: {
     serializeBinary: function serializeBinary() {
       return DashAPICredsUpdateReq.encode(this).finish();
-    }
-    ,
+    },
   } as any,
   responseType: {
     deserializeBinary: function deserializeBinary(data: Uint8Array) {
-      return { ...DashCred.decode(data), toObject() { return this; } };
-    }
-    ,
+      return {
+        ...DashCred.decode(data),
+        toObject() {
+          return this;
+        },
+      };
+    },
   } as any,
-}
+};
 const DashAPICredsDeleteDesc: UnaryMethodDefinitionish = {
-  methodName: "Delete",
+  methodName: 'Delete',
   service: DashAPICredsDesc,
   requestStream: false,
   responseStream: false,
   requestType: {
     serializeBinary: function serializeBinary() {
       return DashAPICredsDeleteReq.encode(this).finish();
-    }
-    ,
+    },
   } as any,
   responseType: {
     deserializeBinary: function deserializeBinary(data: Uint8Array) {
-      return { ...DashCred.decode(data), toObject() { return this; } };
-    }
-    ,
+      return {
+        ...DashCred.decode(data),
+        toObject() {
+          return this;
+        },
+      };
+    },
   } as any,
-}
-import UnaryMethodDefinition = grpc.UnaryMethodDefinition;
-type UnaryMethodDefinitionish = UnaryMethodDefinition<any, any>;
+};
+type UnaryMethodDefinitionish = grpc.UnaryMethodDefinition<any, any>;
 
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
 type DeepPartial<T> = T extends Builtin

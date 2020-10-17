@@ -38,6 +38,8 @@ function fromTimestamp(t: Timestamp): Date {
   return new Date(millis);
 }
 
+export const protobufPackage = 'simple'
+
 export const ImportedThing = {
   encode(message: ImportedThing, writer: Writer = Writer.create()): Writer {
     if (message.created_at !== undefined && message.created_at !== undefined) {
@@ -82,7 +84,7 @@ export const ImportedThing = {
   },
   toJSON(message: ImportedThing): unknown {
     const obj: any = {};
-    obj.created_at = message.created_at !== undefined ? message.created_at.toISOString() : null;
+    message.created_at !== undefined && (obj.created_at = message.created_at !== undefined ? message.created_at.toISOString() : null);
     return obj;
   },
 };
