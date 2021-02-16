@@ -34,10 +34,11 @@ export function generateNestjsServiceController(
     maybeAddComment(info, chunks, serviceDesc.options?.deprecated);
 
     const params: Code[] = [];
+    params.push(code`request: ${requestType(ctx, methodDesc)}`);
+
     if (options.useContext) {
       params.push(code`ctx: Context`);
     }
-    params.push(code`request: ${requestType(ctx, methodDesc)}`);
     // Use metadata as last argument for interface only configuration
     if (options.addGrpcMetadata) {
       const q = options.addNestjsRestParameter ? '' : '?';

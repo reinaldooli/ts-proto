@@ -21,10 +21,10 @@ function generateNestjsServiceController(ctx, fileDesc, sourceInfo, serviceDesc)
         const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
         utils_1.maybeAddComment(info, chunks, (_a = serviceDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
         const params = [];
+        params.push(ts_poet_1.code `request: ${types_1.requestType(ctx, methodDesc)}`);
         if (options.useContext) {
             params.push(ts_poet_1.code `ctx: Context`);
         }
-        params.push(ts_poet_1.code `request: ${types_1.requestType(ctx, methodDesc)}`);
         // Use metadata as last argument for interface only configuration
         if (options.addGrpcMetadata) {
             const q = options.addNestjsRestParameter ? '' : '?';
