@@ -171,16 +171,16 @@ export interface Numbers {
 /** For testing proto3's field presence feature. */
 export interface SimpleButOptional {
   /** Name field */
-  name?: string | undefined;
+  name: string | undefined;
   /** Age */
-  age?: number | undefined;
+  age: number | undefined;
   /** This comment will also attach */
-  createdAt?: Date | undefined;
-  child?: Child | undefined;
-  state?: StateEnum | undefined;
+  createdAt: Date | undefined;
+  child: Child | undefined;
+  state: StateEnum | undefined;
   /** A thing (imported from thing) */
-  thing?: ImportedThing | undefined;
-  birthday?: DateMessage | undefined;
+  thing: ImportedThing | undefined;
+  birthday: DateMessage | undefined;
 }
 
 export interface Empty {}
