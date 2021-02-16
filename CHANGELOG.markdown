@@ -1,4 +1,123 @@
 
+
+## v1.65.0
+
+* Fix `globalThis` compilation errors with messages called `Error` 
+
+## v1.64.0
+
+* Don't put default values on the wire while encoding. Fixed #213. (webmaster128)
+
+## v1.63.0
+
+* Qualify `Object.create` with `globalThis` to avoid collisions with message names of `Object`. Fixes #216.
+
+## v1.62.0
+
+* Use `ts-proto-descriptors` package to read/write the `protoc` stdin `CodeGeneratorRequest` and stdout `CodeGeneratorResponse` messages.
+
+## v1.61.0
+
+* Use `Object.create` in `decode` to create messages so that `hasOwnProperty` will be false for fields that are using default values.
+
+  In theory fields being default values is not supposed to be observable (on the wire at least), but protobuf itself specifically uses this for the `FieldDescriptorProto.oneofIndex` field.
+
+## v1.60.0
+
+* New `outputSchema` option to include the `*.proto` schema/metadata in the generated output file (Vilsol)
+
+## v1.59.0
+
+* Fix `DeepPartial` imports when services and messages are in separate files
+
+## v1.58.0
+
+* Fix JSON parsing of long wrapper values when forceLong != long (jessebutterfield)
+
+## v1.57.0
+
+* Accidental duplicate publish.
+
+## v1.56.0
+
+* Fix import collisions for imported-only symbols (stezu)
+
+## v1.55.0
+
+* Fix missing `fromTimestamp` import in generated code, fixes #200 (jessebutterfield)
+
+## v1.54.0
+
+* Fix `google.protobuf.BytesValue` in `fromPartial` & `fromJSON` (ebakoba)
+
+## v1.53.0
+
+* Fix typo for method names in service output (willclarktech)
+
+## v1.52.0
+
+* Fix `stringEnums=true` in `fromJSON` and `fromPartial` output (mharsat)
+
+## v1.51.0
+
+* Re-publish to fix previous publish error.
+
+## v1.50.0
+
+* Allow setting `addGrpcMetadata=true` w/o using NestJS (#188)
+
+## v1.49.0
+
+* Add `exportCommonSymbols` flag (defaults `true`) that, when `false` skips `export`ing a few common symbols (i.e. `DeepPartial`) that make it more likely for multiple generated files to be imported by `import * from ...` and not have import conflicts, i.e. for barrel imports.
+## v1.48.0
+
+* Tweak `atob` & `btoa` utility methods to prefix `Buffer` with `globalThis` to avoid issues in non-node envs. Fixes #77.
+
+## v1.47.0
+
+* Avoid import conflicts when an imported message name matches a locally-declared message name, see #36.
+
+## v1.46.0
+
+* Import `protobufjs/minimal` as a default import when using `esModuleInterop`
+  * This should fix running in "type: module" ESM modules, see #181
+
+## v1.45.0
+
+* Add new `esModuleInterop` option to fix `Long` imports for projects that use `esModuleInterop: true` in their `tsconfig.json`.
+
+## v1.44.0
+
+* Fix `DeepPartial` when used with `Long`s (willclarktech)
+
+## v1.43.0
+
+* Polyfill `globalThis` for Node v10 support (willclarktech)
+
+## v1.42.1
+
+* Handle `@deprecated` when there are no other comments (ShakedH)
+
+## v1.42.0
+
+* Messages and fields that are marked as `deprecated` in `*.proto` files will have a `@deprecated` marker included in their JSDoc output (ShakedH)
+* Upgraded to the latest ts-poet
+
+## v1.41.1
+
+* [grpc-web] Remove `import =` to support not using synthetic default imports
+
+## v1.41.0
+
+* [grpc-web] Fix code generation errors introduced in v1.40.0
+* [grpc-web] Revert breaking change of `unaryTransport` / `invokeTransport`
+  * Now client constructors take `transport` & `streamingTransport`, and streaming calls will use `streamingTransport` is set, and otherwise fallback on `transport`.
+* [grpc-web] Remove `rxjs` dependency unless streaming is actually used
+
+## v1.40.0
+
+* Add support for grpc-web streaming responses (PhilipMantrov)
+
 ## v1.38.0
 
 * Add `unrecognizedEnum` option for disabling the `UNRECOGNIZED` enum values (ShakedH)

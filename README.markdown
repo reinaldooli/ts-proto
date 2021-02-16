@@ -6,14 +6,15 @@
 
 > `ts-proto` transforms your `.proto` files into strongly-typed, idiomatic TypeScript files!
 
+(Note, if you're a new user of ts-proto and using a modern TS setup with `esModuleInterop`, you need to also pass that as a `ts_proto_opt`.)
+
 ## Table of contents
 
 - [QuickStart](#quickstart)
 - [Goals](#goals)
 - [Example Types](#example-types)
 - [Highlights](#highlights)
-- [Current Disclaimers](#current-disclaimers)
-- [Auto-Batching / N+1 Prevention](#auto-batching---n-1-prevention)
+- [Auto-Batching / N+1 Prevention](#auto-batching--n1-prevention)
 - [Usage](#usage)
   - [Supported options](#supported-options)
   - [Only Types](#only-types)
@@ -21,7 +22,6 @@
 - [Building](#building)
 - [Assumptions](#assumptions)
 - [Todo](#todo)
-- [Typing Approach](#typing-approach)
 - [OneOf Handling](#oneof-handling)
 - [Primitive Types](#primitive-types)
 - [Wrapper Types](#wrapper-types)
@@ -153,14 +153,6 @@ creating a class and calling the right getters/setters.
 
 - `fromJSON`/`toJSON` support the [canonical Protobuf JS](https://developers.google.com/protocol-buffers/docs/proto3#json) format (i.e. timestamps are ISO strings)
 
-# Current Disclaimers
-
-ts-proto was originally developed for [Twirp](https://github.com/twitchtv/twirp), so the clients it generates (if your `*.proto` files use the GRPC `service` constructs) assume they're talking to Twirp HTTP endpoints. There is an issue filed (#2) to support GRPC endpoints, but no work currently in progress.
-
-That said, the message/interface types that ts-proto generates are not coupled to Twirp and should be fully usable in other Protobuf environments (either GRPC-based or even just reading protobuf files from disk/etc.). The client-related output can also be disabled (see the Usage section).
-
-ts-proto also does not currently have any infrastructure to help implement the server-side of a GRPC (either Twirp or pure GRPC) service, i.e. built-in Express bindings or something like that. However, again, the types/interfaces that ts-proto generates for your messages and services are still generally very helpful in setting up your own server-side implementations.
-
 # Auto-Batching / N+1 Prevention
 
 (Note: this is currently only supported by the Twirp clients.)
@@ -207,6 +199,10 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
   Alternatively, if you pass `--ts_proto_opt=forceLong=string`, all 64 bit numbers will be outputted as strings.
 
+- With `--ts_proto_opt=esModuleInterop=true` changes output to be `esModuleInterop` compliant.
+  
+  Specifically the `Long` imports will be generated as `import Long from 'long'` instead of `import * as Long from 'long'`.
+
 - With `--ts_proto_opt=env=node` or `browser` or `both`, ts-proto will make environment-specific assumptions in your output. This defaults to `both`, which makes no environment-specific assumptions.
 
   Using `node` changes the types of `bytes` from `Uint8Array` to `Buffer` for easier integration with the node ecosystem which generally uses `Buffer`.
@@ -239,6 +235,12 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
   (Also note that each message's `Message.fromPartial(...)` static methods are specifically meant to address this, because it allows you to create a message with all keys optional, but still applies the usual protobuf default-value-on-missing-key logic, so that code that reads the message get more consistent behavior.
 
+- With `--ts_proto_opt=exportCommonSymbols=false`, utility types like `DeepPartial` won't be `export`d.
+  
+  This should make it possible to use create barrel imports of the generated output, i.e. `import * from ./foo` and `import * from ./bar`.
+  
+  Note that if you have the same message name used in multiple `*.proto` files, you will still get import conflicts. 
+
 - With `--ts_proto_opt=oneof=unions`, `oneof` fields will be generated as ADTs.
 
   See the "OneOf Handling" section.
@@ -246,6 +248,10 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 - With `--ts_proto_opt=unrecognizedEnum=false` enums will not contain an `UNRECOGNIZED` key with value of -1.
 
 - With `--ts_proto_opt=lowerCaseServiceMethods=true`, the method names of service methods will be lowered/camel-case, i.e. `service.findFoo` instead of `service.FindFoo`.
+
+- With `--ts_proto_opt=snakeToCamel=false`, fields will be kept snake case.
+
+  Defaults to `true`.
 
 - With `--ts_proto_opt=outputEncodeMethods=false`, the `Message.encode` and `Message.decode` methods for working with protobuf-encoded/binary data will not be output.
 
@@ -287,6 +293,8 @@ protoc --plugin=node_modules/ts-proto/protoc-gen-ts_proto ./batching.proto -I.
 
 - With `--ts_proto_opt=useDate=false`, fields of type `google.protobuf.Timestamp` will not be mapped to type `Date` in the generated types.
 
+- With `--ts_proto_opt=outputSchema=true`, meta typings will be generated that can later be used in other code generators.
+
 ### Only Types
 
 If you're looking for `ts-proto` to generate only types for your Protobuf types then passing all three of `outputEncodeMethods`, `outputJsonMethods`, and `outputClientImpl` as `false` is probably what you want, i.e.:
@@ -307,11 +315,9 @@ If you need ts-proto customizations or priority support for your company, you ca
 
 # Building
 
-`ts-proto` does not use `pbjs` at runtime, but we do use it in the `ts-proto` build process (to bootstrap the types used to parse the incoming protobuf metadata types, as well as for the test suite to ensure the `ts-proto` implementations match the `ts-proto`).
+After running `yarn install`, run `./integration/pbjs.sh` to create the integration test types. These pbjs-generated files are not currently checked in.
 
-After running `yarn install`, run `./pbjs.sh` to create the bootstrap types, and `./integration/pbjs.sh` to create the integration test types. These pbjs-generated files are not currently checked in.
-
-After this the tests should pass.
+After this, the tests should pass.
 
 After making changes to `ts-proto`, you can run `cd integration` and `./codegen.sh` to re-generate the test case `*.ts` output files that are in each `integration/<test-case>/` directory.
 
@@ -327,6 +333,7 @@ The test suite's proto files (i.e. `simple.proto`, `batching.proto`, etc.) curre
 - Support the `json_name` annotation
 - Make `oneof=unions` the default behavior in 2.0
 - Probably change `forceLong` default in 2.0, should default to `forceLong=long`
+- Make `esModuleInterop=true` the default in 2.0
 
 # OneOf Handling
 

@@ -1,78 +1,12 @@
+/* eslint-disable */
 import * as Long from 'long';
-import { Writer, Reader, util, configure } from 'protobufjs/minimal';
+import { util, configure, Writer, Reader } from 'protobufjs/minimal';
+
+export const protobufPackage = 'vector_tile';
 
 export interface Tile {
   layers: Tile_Layer[];
 }
-
-export interface Tile_Value {
-  stringValue: string;
-  floatValue: number;
-  doubleValue: number;
-  intValue: number;
-  uintValue: number;
-  sintValue: number;
-  boolValue: boolean;
-}
-
-export interface Tile_Feature {
-  id: number;
-  tags: number[];
-  type: Tile_GeomType;
-  geometry: number[];
-}
-
-export interface Tile_Layer {
-  version: number;
-  name: string;
-  features: Tile_Feature[];
-  keys: string[];
-  values: Tile_Value[];
-  extent: number;
-}
-
-const baseTile: object = {
-  layers: undefined,
-};
-
-const baseTile_Value: object = {
-  stringValue: '',
-  floatValue: 0,
-  doubleValue: 0,
-  intValue: 0,
-  uintValue: 0,
-  sintValue: 0,
-  boolValue: false,
-};
-
-const baseTile_Feature: object = {
-  id: 0,
-  tags: 0,
-  type: 0,
-  geometry: 0,
-};
-
-const baseTile_Layer: object = {
-  version: 0,
-  name: '',
-  features: undefined,
-  keys: '',
-  values: undefined,
-  extent: 0,
-};
-
-interface Rpc {
-  request(service: string, method: string, data: Uint8Array): Promise<Uint8Array>;
-}
-
-function longToNumber(long: Long) {
-  if (long.gt(Number.MAX_SAFE_INTEGER)) {
-    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
-  }
-  return long.toNumber();
-}
-
-export const protobufPackage = 'vector_tile';
 
 export enum Tile_GeomType {
   UNKNOWN = 0,
@@ -118,6 +52,34 @@ export function tile_GeomTypeToJSON(object: Tile_GeomType): string {
   }
 }
 
+export interface Tile_Value {
+  stringValue: string;
+  floatValue: number;
+  doubleValue: number;
+  intValue: number;
+  uintValue: number;
+  sintValue: number;
+  boolValue: boolean;
+}
+
+export interface Tile_Feature {
+  id: number;
+  tags: number[];
+  type: Tile_GeomType;
+  geometry: number[];
+}
+
+export interface Tile_Layer {
+  version: number;
+  name: string;
+  features: Tile_Feature[];
+  keys: string[];
+  values: Tile_Value[];
+  extent: number;
+}
+
+const baseTile: object = {};
+
 export const Tile = {
   encode(message: Tile, writer: Writer = Writer.create()): Writer {
     for (const v of message.layers) {
@@ -125,10 +87,11 @@ export const Tile = {
     }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Tile {
+
+  decode(input: Reader | Uint8Array, length?: number): Tile {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...baseTile } as Tile;
+    const message = globalThis.Object.create(baseTile) as Tile;
     message.layers = [];
     while (reader.pos < end) {
       const tag = reader.uint32();
@@ -143,8 +106,9 @@ export const Tile = {
     }
     return message;
   },
+
   fromJSON(object: any): Tile {
-    const message = { ...baseTile } as Tile;
+    const message = globalThis.Object.create(baseTile) as Tile;
     message.layers = [];
     if (object.layers !== undefined && object.layers !== null) {
       for (const e of object.layers) {
@@ -153,6 +117,7 @@ export const Tile = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Tile>): Tile {
     const message = { ...baseTile } as Tile;
     message.layers = [];
@@ -163,6 +128,7 @@ export const Tile = {
     }
     return message;
   },
+
   toJSON(message: Tile): unknown {
     const obj: any = {};
     if (message.layers) {
@@ -174,21 +140,46 @@ export const Tile = {
   },
 };
 
+const baseTile_Value: object = {
+  stringValue: '',
+  floatValue: 0,
+  doubleValue: 0,
+  intValue: 0,
+  uintValue: 0,
+  sintValue: 0,
+  boolValue: false,
+};
+
 export const Tile_Value = {
   encode(message: Tile_Value, writer: Writer = Writer.create()): Writer {
-    writer.uint32(10).string(message.stringValue);
-    writer.uint32(21).float(message.floatValue);
-    writer.uint32(25).double(message.doubleValue);
-    writer.uint32(32).int64(message.intValue);
-    writer.uint32(40).uint64(message.uintValue);
-    writer.uint32(48).sint64(message.sintValue);
-    writer.uint32(56).bool(message.boolValue);
+    if (message.stringValue !== '') {
+      writer.uint32(10).string(message.stringValue);
+    }
+    if (message.floatValue !== 0) {
+      writer.uint32(21).float(message.floatValue);
+    }
+    if (message.doubleValue !== 0) {
+      writer.uint32(25).double(message.doubleValue);
+    }
+    if (message.intValue !== 0) {
+      writer.uint32(32).int64(message.intValue);
+    }
+    if (message.uintValue !== 0) {
+      writer.uint32(40).uint64(message.uintValue);
+    }
+    if (message.sintValue !== 0) {
+      writer.uint32(48).sint64(message.sintValue);
+    }
+    if (message.boolValue === true) {
+      writer.uint32(56).bool(message.boolValue);
+    }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Tile_Value {
+
+  decode(input: Reader | Uint8Array, length?: number): Tile_Value {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...baseTile_Value } as Tile_Value;
+    const message = globalThis.Object.create(baseTile_Value) as Tile_Value;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -220,8 +211,9 @@ export const Tile_Value = {
     }
     return message;
   },
+
   fromJSON(object: any): Tile_Value {
-    const message = { ...baseTile_Value } as Tile_Value;
+    const message = globalThis.Object.create(baseTile_Value) as Tile_Value;
     if (object.stringValue !== undefined && object.stringValue !== null) {
       message.stringValue = String(object.stringValue);
     } else {
@@ -259,6 +251,7 @@ export const Tile_Value = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Tile_Value>): Tile_Value {
     const message = { ...baseTile_Value } as Tile_Value;
     if (object.stringValue !== undefined && object.stringValue !== null) {
@@ -298,6 +291,7 @@ export const Tile_Value = {
     }
     return message;
   },
+
   toJSON(message: Tile_Value): unknown {
     const obj: any = {};
     message.stringValue !== undefined && (obj.stringValue = message.stringValue);
@@ -311,15 +305,21 @@ export const Tile_Value = {
   },
 };
 
+const baseTile_Feature: object = { id: 0, tags: 0, type: 0, geometry: 0 };
+
 export const Tile_Feature = {
   encode(message: Tile_Feature, writer: Writer = Writer.create()): Writer {
-    writer.uint32(8).uint64(message.id);
+    if (message.id !== 0) {
+      writer.uint32(8).uint64(message.id);
+    }
     writer.uint32(18).fork();
     for (const v of message.tags) {
       writer.uint32(v);
     }
     writer.ldelim();
-    writer.uint32(24).int32(message.type);
+    if (message.type !== 0) {
+      writer.uint32(24).int32(message.type);
+    }
     writer.uint32(34).fork();
     for (const v of message.geometry) {
       writer.uint32(v);
@@ -327,10 +327,11 @@ export const Tile_Feature = {
     writer.ldelim();
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Tile_Feature {
+
+  decode(input: Reader | Uint8Array, length?: number): Tile_Feature {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...baseTile_Feature } as Tile_Feature;
+    const message = globalThis.Object.create(baseTile_Feature) as Tile_Feature;
     message.tags = [];
     message.geometry = [];
     while (reader.pos < end) {
@@ -369,8 +370,9 @@ export const Tile_Feature = {
     }
     return message;
   },
+
   fromJSON(object: any): Tile_Feature {
-    const message = { ...baseTile_Feature } as Tile_Feature;
+    const message = globalThis.Object.create(baseTile_Feature) as Tile_Feature;
     message.tags = [];
     message.geometry = [];
     if (object.id !== undefined && object.id !== null) {
@@ -395,6 +397,7 @@ export const Tile_Feature = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Tile_Feature>): Tile_Feature {
     const message = { ...baseTile_Feature } as Tile_Feature;
     message.tags = [];
@@ -421,6 +424,7 @@ export const Tile_Feature = {
     }
     return message;
   },
+
   toJSON(message: Tile_Feature): unknown {
     const obj: any = {};
     message.id !== undefined && (obj.id = message.id);
@@ -439,10 +443,16 @@ export const Tile_Feature = {
   },
 };
 
+const baseTile_Layer: object = { version: 0, name: '', keys: '', extent: 0 };
+
 export const Tile_Layer = {
   encode(message: Tile_Layer, writer: Writer = Writer.create()): Writer {
-    writer.uint32(120).uint32(message.version);
-    writer.uint32(10).string(message.name);
+    if (message.version !== 0) {
+      writer.uint32(120).uint32(message.version);
+    }
+    if (message.name !== '') {
+      writer.uint32(10).string(message.name);
+    }
     for (const v of message.features) {
       Tile_Feature.encode(v!, writer.uint32(18).fork()).ldelim();
     }
@@ -452,13 +462,16 @@ export const Tile_Layer = {
     for (const v of message.values) {
       Tile_Value.encode(v!, writer.uint32(34).fork()).ldelim();
     }
-    writer.uint32(40).uint32(message.extent);
+    if (message.extent !== 0) {
+      writer.uint32(40).uint32(message.extent);
+    }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Tile_Layer {
+
+  decode(input: Reader | Uint8Array, length?: number): Tile_Layer {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...baseTile_Layer } as Tile_Layer;
+    const message = globalThis.Object.create(baseTile_Layer) as Tile_Layer;
     message.features = [];
     message.keys = [];
     message.values = [];
@@ -490,8 +503,9 @@ export const Tile_Layer = {
     }
     return message;
   },
+
   fromJSON(object: any): Tile_Layer {
-    const message = { ...baseTile_Layer } as Tile_Layer;
+    const message = globalThis.Object.create(baseTile_Layer) as Tile_Layer;
     message.features = [];
     message.keys = [];
     message.values = [];
@@ -527,6 +541,7 @@ export const Tile_Layer = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Tile_Layer>): Tile_Layer {
     const message = { ...baseTile_Layer } as Tile_Layer;
     message.features = [];
@@ -564,6 +579,7 @@ export const Tile_Layer = {
     }
     return message;
   },
+
   toJSON(message: Tile_Layer): unknown {
     const obj: any = {};
     message.version !== undefined && (obj.version = message.version);
@@ -588,13 +604,18 @@ export const Tile_Layer = {
   },
 };
 
-if (util.Long !== (Long as any)) {
-  util.Long = Long as any;
-  configure();
-}
+declare var self: any | undefined;
+declare var window: any | undefined;
+var globalThis: any = (() => {
+  if (typeof globalThis !== 'undefined') return globalThis;
+  if (typeof self !== 'undefined') return self;
+  if (typeof window !== 'undefined') return window;
+  if (typeof global !== 'undefined') return global;
+  throw 'Unable to locate global object';
+})();
 
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
-type DeepPartial<T> = T extends Builtin
+export type DeepPartial<T> = T extends Builtin
   ? T
   : T extends Array<infer U>
   ? Array<DeepPartial<U>>
@@ -603,3 +624,15 @@ type DeepPartial<T> = T extends Builtin
   : T extends {}
   ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
+
+function longToNumber(long: Long): number {
+  if (long.gt(Number.MAX_SAFE_INTEGER)) {
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
+  }
+  return long.toNumber();
+}
+
+if (util.Long !== Long) {
+  util.Long = Long as any;
+  configure();
+}

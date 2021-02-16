@@ -1,11 +1,12 @@
+import { CodeGeneratorRequest } from 'ts-proto-descriptors/google/protobuf/compiler/plugin';
 import { mkdir, readFile, writeFile } from 'fs';
 import { parse } from 'path';
 import { promisify } from 'util';
-import { google } from '../build/pbjs';
-import { generateFile } from '../src/main';
+import { generateFile, makeUtils } from '../src/main';
 import { createTypeMap } from '../src/types';
-import { optionsFromParameter } from '../src/utils';
-import CodeGeneratorRequest = google.protobuf.compiler.CodeGeneratorRequest;
+import { prefixDisableLinter } from '../src/utils';
+import { getTsPoetOpts, optionsFromParameter } from '../src/options';
+import { Context } from '../src/context';
 
 /**
  * Generates output for our integration tests from their example proto files.
@@ -25,16 +26,22 @@ async function generate(binFile: string, baseDir: string, parameter: string) {
   const stdin = await promisify(readFile)(binFile);
   const request = CodeGeneratorRequest.decode(stdin);
   request.parameter = parameter;
-  const map = createTypeMap(request, optionsFromParameter(parameter || ''));
+
+  const options = optionsFromParameter(parameter || '');
+  const typeMap = createTypeMap(request, options);
+
   for (let file of request.protoFile) {
-    const spec = generateFile(map, file, request.parameter);
-    const filePath = `${baseDir}/${spec.path}`;
+    // Make a different utils per file to track per-file usage
+    const utils = makeUtils(options);
+    const ctx: Context = { options, typeMap, utils };
+    const [path, code] = generateFile(ctx, file);
+    const filePath = `${baseDir}/${path}`;
     const dirPath = parse(filePath).dir;
     await promisify(mkdir)(dirPath, { recursive: true }).catch(() => {});
-    console.log('baseDir ', baseDir);
-    console.log('dirPath ', dirPath);
-    console.log('filePath ', filePath);
-    await promisify(writeFile)(filePath, spec.toString());
+    await promisify(writeFile)(
+      filePath,
+      prefixDisableLinter(await code.toStringWithImports({ ...getTsPoetOpts(options), path }))
+    );
   }
 }
 

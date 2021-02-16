@@ -1,4 +1,7 @@
+/* eslint-disable */
 import { Writer, Reader } from 'protobufjs/minimal';
+
+export const protobufPackage = '';
 
 export interface Point {
   lat: number;
@@ -10,28 +13,23 @@ export interface Area {
   se: Point | undefined;
 }
 
-const basePoint: object = {
-  lat: 0,
-  lng: 0,
-};
-
-const baseArea: object = {
-  nw: undefined,
-  se: undefined,
-};
-
-export const protobufPackage = '';
+const basePoint: object = { lat: 0, lng: 0 };
 
 export const Point = {
   encode(message: Point, writer: Writer = Writer.create()): Writer {
-    writer.uint32(9).double(message.lat);
-    writer.uint32(17).double(message.lng);
+    if (message.lat !== 0) {
+      writer.uint32(9).double(message.lat);
+    }
+    if (message.lng !== 0) {
+      writer.uint32(17).double(message.lng);
+    }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Point {
+
+  decode(input: Reader | Uint8Array, length?: number): Point {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...basePoint } as Point;
+    const message = globalThis.Object.create(basePoint) as Point;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -48,8 +46,9 @@ export const Point = {
     }
     return message;
   },
+
   fromJSON(object: any): Point {
-    const message = { ...basePoint } as Point;
+    const message = globalThis.Object.create(basePoint) as Point;
     if (object.lat !== undefined && object.lat !== null) {
       message.lat = Number(object.lat);
     } else {
@@ -62,6 +61,7 @@ export const Point = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Point>): Point {
     const message = { ...basePoint } as Point;
     if (object.lat !== undefined && object.lat !== null) {
@@ -76,6 +76,7 @@ export const Point = {
     }
     return message;
   },
+
   toJSON(message: Point): unknown {
     const obj: any = {};
     message.lat !== undefined && (obj.lat = message.lat);
@@ -84,20 +85,23 @@ export const Point = {
   },
 };
 
+const baseArea: object = {};
+
 export const Area = {
   encode(message: Area, writer: Writer = Writer.create()): Writer {
-    if (message.nw !== undefined && message.nw !== undefined) {
+    if (message.nw !== undefined) {
       Point.encode(message.nw, writer.uint32(10).fork()).ldelim();
     }
-    if (message.se !== undefined && message.se !== undefined) {
+    if (message.se !== undefined) {
       Point.encode(message.se, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): Area {
+
+  decode(input: Reader | Uint8Array, length?: number): Area {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...baseArea } as Area;
+    const message = globalThis.Object.create(baseArea) as Area;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -114,8 +118,9 @@ export const Area = {
     }
     return message;
   },
+
   fromJSON(object: any): Area {
-    const message = { ...baseArea } as Area;
+    const message = globalThis.Object.create(baseArea) as Area;
     if (object.nw !== undefined && object.nw !== null) {
       message.nw = Point.fromJSON(object.nw);
     } else {
@@ -128,6 +133,7 @@ export const Area = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<Area>): Area {
     const message = { ...baseArea } as Area;
     if (object.nw !== undefined && object.nw !== null) {
@@ -142,6 +148,7 @@ export const Area = {
     }
     return message;
   },
+
   toJSON(message: Area): unknown {
     const obj: any = {};
     message.nw !== undefined && (obj.nw = message.nw ? Point.toJSON(message.nw) : undefined);
@@ -150,8 +157,18 @@ export const Area = {
   },
 };
 
+declare var self: any | undefined;
+declare var window: any | undefined;
+var globalThis: any = (() => {
+  if (typeof globalThis !== 'undefined') return globalThis;
+  if (typeof self !== 'undefined') return self;
+  if (typeof window !== 'undefined') return window;
+  if (typeof global !== 'undefined') return global;
+  throw 'Unable to locate global object';
+})();
+
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
-type DeepPartial<T> = T extends Builtin
+export type DeepPartial<T> = T extends Builtin
   ? T
   : T extends Array<infer U>
   ? Array<DeepPartial<U>>

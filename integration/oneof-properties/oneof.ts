@@ -1,21 +1,24 @@
+/* eslint-disable */
 import { Writer, Reader } from 'protobufjs/minimal';
+
+export const protobufPackage = 'oneof';
 
 export interface PleaseChoose {
   name: string;
   /**
-   *  Use this if you want a number. Numbers are great. Who doesn't
-   *  like them?
+   * Use this if you want a number. Numbers are great. Who doesn't
+   * like them?
    */
   aNumber: number | undefined;
   /**
-   *  Use this if you want a string. Strings are also nice. Not as
-   *  nice as numbers, but what are you going to do...
+   * Use this if you want a string. Strings are also nice. Not as
+   * nice as numbers, but what are you going to do...
    */
   aString: string | undefined;
   aMessage: PleaseChoose_Submessage | undefined;
   /**
-   *  We also added a bool option! This was added after the 'age'
-   *  field, so it has a higher number.
+   * We also added a bool option! This was added after the 'age'
+   * field, so it has a higher number.
    */
   aBool: boolean | undefined;
   bunchaBytes: Uint8Array | undefined;
@@ -25,21 +28,6 @@ export interface PleaseChoose {
   or: string | undefined;
   thirdOption: string | undefined;
 }
-
-export interface PleaseChoose_Submessage {
-  name: string;
-}
-
-const basePleaseChoose: object = {
-  name: '',
-  age: 0,
-};
-
-const basePleaseChoose_Submessage: object = {
-  name: '',
-};
-
-export const protobufPackage = 'oneof';
 
 export enum PleaseChoose_StateEnum {
   UNKNOWN = 0,
@@ -79,9 +67,17 @@ export function pleaseChoose_StateEnumToJSON(object: PleaseChoose_StateEnum): st
   }
 }
 
+export interface PleaseChoose_Submessage {
+  name: string;
+}
+
+const basePleaseChoose: object = { name: '', age: 0 };
+
 export const PleaseChoose = {
   encode(message: PleaseChoose, writer: Writer = Writer.create()): Writer {
-    writer.uint32(10).string(message.name);
+    if (message.name !== '') {
+      writer.uint32(10).string(message.name);
+    }
     if (message.aNumber !== undefined) {
       writer.uint32(17).double(message.aNumber);
     }
@@ -100,7 +96,9 @@ export const PleaseChoose = {
     if (message.anEnum !== undefined) {
       writer.uint32(88).int32(message.anEnum);
     }
-    writer.uint32(40).uint32(message.age);
+    if (message.age !== 0) {
+      writer.uint32(40).uint32(message.age);
+    }
     if (message.either !== undefined) {
       writer.uint32(58).string(message.either);
     }
@@ -112,10 +110,11 @@ export const PleaseChoose = {
     }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): PleaseChoose {
+
+  decode(input: Reader | Uint8Array, length?: number): PleaseChoose {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...basePleaseChoose } as PleaseChoose;
+    const message = globalThis.Object.create(basePleaseChoose) as PleaseChoose;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -159,8 +158,9 @@ export const PleaseChoose = {
     }
     return message;
   },
+
   fromJSON(object: any): PleaseChoose {
-    const message = { ...basePleaseChoose } as PleaseChoose;
+    const message = globalThis.Object.create(basePleaseChoose) as PleaseChoose;
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
@@ -216,6 +216,7 @@ export const PleaseChoose = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<PleaseChoose>): PleaseChoose {
     const message = { ...basePleaseChoose } as PleaseChoose;
     if (object.name !== undefined && object.name !== null) {
@@ -275,6 +276,7 @@ export const PleaseChoose = {
     }
     return message;
   },
+
   toJSON(message: PleaseChoose): unknown {
     const obj: any = {};
     message.name !== undefined && (obj.name = message.name);
@@ -295,15 +297,20 @@ export const PleaseChoose = {
   },
 };
 
+const basePleaseChoose_Submessage: object = { name: '' };
+
 export const PleaseChoose_Submessage = {
   encode(message: PleaseChoose_Submessage, writer: Writer = Writer.create()): Writer {
-    writer.uint32(10).string(message.name);
+    if (message.name !== '') {
+      writer.uint32(10).string(message.name);
+    }
     return writer;
   },
-  decode(input: Uint8Array | Reader, length?: number): PleaseChoose_Submessage {
+
+  decode(input: Reader | Uint8Array, length?: number): PleaseChoose_Submessage {
     const reader = input instanceof Uint8Array ? new Reader(input) : input;
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = { ...basePleaseChoose_Submessage } as PleaseChoose_Submessage;
+    const message = globalThis.Object.create(basePleaseChoose_Submessage) as PleaseChoose_Submessage;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -317,8 +324,9 @@ export const PleaseChoose_Submessage = {
     }
     return message;
   },
+
   fromJSON(object: any): PleaseChoose_Submessage {
-    const message = { ...basePleaseChoose_Submessage } as PleaseChoose_Submessage;
+    const message = globalThis.Object.create(basePleaseChoose_Submessage) as PleaseChoose_Submessage;
     if (object.name !== undefined && object.name !== null) {
       message.name = String(object.name);
     } else {
@@ -326,6 +334,7 @@ export const PleaseChoose_Submessage = {
     }
     return message;
   },
+
   fromPartial(object: DeepPartial<PleaseChoose_Submessage>): PleaseChoose_Submessage {
     const message = { ...basePleaseChoose_Submessage } as PleaseChoose_Submessage;
     if (object.name !== undefined && object.name !== null) {
@@ -335,6 +344,7 @@ export const PleaseChoose_Submessage = {
     }
     return message;
   },
+
   toJSON(message: PleaseChoose_Submessage): unknown {
     const obj: any = {};
     message.name !== undefined && (obj.name = message.name);
@@ -342,15 +352,18 @@ export const PleaseChoose_Submessage = {
   },
 };
 
-interface WindowBase64 {
-  atob(b64: string): string;
-  btoa(bin: string): string;
-}
+declare var self: any | undefined;
+declare var window: any | undefined;
+var globalThis: any = (() => {
+  if (typeof globalThis !== 'undefined') return globalThis;
+  if (typeof self !== 'undefined') return self;
+  if (typeof window !== 'undefined') return window;
+  if (typeof global !== 'undefined') return global;
+  throw 'Unable to locate global object';
+})();
 
-const windowBase64 = (globalThis as unknown) as WindowBase64;
-const atob = windowBase64.atob || ((b64: string) => Buffer.from(b64, 'base64').toString('binary'));
-const btoa = windowBase64.btoa || ((bin: string) => Buffer.from(bin, 'binary').toString('base64'));
-
+const atob: (b64: string) => string =
+  globalThis.atob || ((b64) => globalThis.Buffer.from(b64, 'base64').toString('binary'));
 function bytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
@@ -360,6 +373,8 @@ function bytesFromBase64(b64: string): Uint8Array {
   return arr;
 }
 
+const btoa: (bin: string) => string =
+  globalThis.btoa || ((bin) => globalThis.Buffer.from(bin, 'binary').toString('base64'));
 function base64FromBytes(arr: Uint8Array): string {
   const bin: string[] = [];
   for (let i = 0; i < arr.byteLength; ++i) {
@@ -367,8 +382,9 @@ function base64FromBytes(arr: Uint8Array): string {
   }
   return btoa(bin.join(''));
 }
+
 type Builtin = Date | Function | Uint8Array | string | number | undefined;
-type DeepPartial<T> = T extends Builtin
+export type DeepPartial<T> = T extends Builtin
   ? T
   : T extends Array<infer U>
   ? Array<DeepPartial<U>>
