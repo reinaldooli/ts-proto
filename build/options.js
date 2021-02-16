@@ -90,9 +90,9 @@ function optionsFromParameter(parameter) {
         }
         if (parameter.includes('outputClientImpl=grpc-web')) {
             options.outputClientImpl = 'grpc-web';
-            if (parameter.includes('returnObservable=true')) {
-                options.returnObservable = true;
-            }
+        }
+        if (parameter.includes('returnObservable=true')) {
+            options.returnObservable = true;
         }
         // Even if not using grpc-web/nestJs output
         if (parameter.includes('addGrpcMetadata=true')) {
