@@ -1,42 +1,27 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.contextTypeVar = exports.visit = exports.generateFile = exports.OneofOption = exports.EnvOption = exports.LongOption = void 0;
+exports.contextTypeVar = exports.makeUtils = exports.generateFile = void 0;
 const ts_poet_1 = require("ts-poet");
-const pbjs_1 = require("../build/pbjs");
+const descriptor_1 = require("ts-proto-descriptors/google/protobuf/descriptor");
 const types_1 = require("./types");
-const sequency_1 = require("sequency");
 const sourceInfo_1 = require("./sourceInfo");
 const utils_1 = require("./utils");
 const case_1 = require("./case");
 const generate_nestjs_1 = require("./generate-nestjs");
 const generate_services_1 = require("./generate-services");
-var FieldDescriptorProto = pbjs_1.google.protobuf.FieldDescriptorProto;
-var FileDescriptorProto = pbjs_1.google.protobuf.FileDescriptorProto;
 const generate_grpc_web_1 = require("./generate-grpc-web");
-var LongOption;
-(function (LongOption) {
-    LongOption["NUMBER"] = "number";
-    LongOption["LONG"] = "long";
-    LongOption["STRING"] = "string";
-})(LongOption = exports.LongOption || (exports.LongOption = {}));
-var EnvOption;
-(function (EnvOption) {
-    EnvOption["NODE"] = "node";
-    EnvOption["BROWSER"] = "browser";
-    EnvOption["BOTH"] = "both";
-})(EnvOption = exports.EnvOption || (exports.EnvOption = {}));
-var OneofOption;
-(function (OneofOption) {
-    OneofOption["PROPERTIES"] = "properties";
-    OneofOption["UNIONS"] = "unions";
-})(OneofOption = exports.OneofOption || (exports.OneofOption = {}));
-function generateFile(typeMap, fileDesc, parameter) {
-    const options = utils_1.optionsFromParameter(parameter);
+const enums_1 = require("./enums");
+const visit_1 = require("./visit");
+const options_1 = require("./options");
+const schema_1 = require("./schema");
+function generateFile(ctx, fileDesc) {
+    var _a;
+    const { options, utils: u } = ctx;
     // Google's protofiles are organized like Java, where package == the folder the file
     // is in, and file == a specific service within the package. I.e. you can have multiple
     // company/foo.proto and company/bar.proto files, where package would be 'company'.
     //
-    // We'll match that stucture by setting up the module path as:
+    // We'll match that structure by setting up the module path as:
     //
     // company/foo.proto --> company/foo.ts
     // company/bar.proto --> company/bar.ts
@@ -44,543 +29,562 @@ function generateFile(typeMap, fileDesc, parameter) {
     // We'll also assume that the fileDesc.name is already the `company/foo.proto` path, with
     // the package already implicitly in it, so we won't re-append/strip/etc. it out/back in.
     const moduleName = fileDesc.name.replace('.proto', '.ts');
-    let file = ts_poet_1.FileSpec.create(moduleName);
-    const sourceInfo = sourceInfo_1.default.fromDescriptor(fileDesc);
+    const chunks = [];
+    // Indicate this file's source protobuf package for reflective use with google.protobuf.Any
+    if (options.exportCommonSymbols) {
+        chunks.push(ts_poet_1.code `export const protobufPackage = '${fileDesc.package}';`);
+    }
     // Syntax, unlike most fields, is not repeated and thus does not use an index
+    const sourceInfo = sourceInfo_1.default.fromDescriptor(fileDesc);
     const headerComment = sourceInfo.lookup(sourceInfo_1.Fields.file.syntax, undefined);
-    utils_1.maybeAddComment(headerComment, (text) => (file = file.addComment(text)));
+    utils_1.maybeAddComment(headerComment, chunks, (_a = fileDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
     // first make all the type declarations
-    visit(fileDesc, sourceInfo, (fullName, message, sInfo) => {
-        file = file.addInterface(generateInterfaceDeclaration(typeMap, fullName, message, sInfo, options));
+    visit_1.visit(fileDesc, sourceInfo, (fullName, message, sInfo) => {
+        chunks.push(generateInterfaceDeclaration(ctx, fullName, message, sInfo));
     }, options, (fullName, enumDesc, sInfo) => {
-        file = file.addCode(generateEnum(options, fullName, enumDesc, sInfo));
+        chunks.push(enums_1.generateEnum(ctx, fullName, enumDesc, sInfo));
     });
     // If nestJs=true export [package]_PACKAGE_NAME and [service]_SERVICE_NAME const
     if (options.nestJs) {
-        file = file.addCode(ts_poet_1.CodeBlock.empty().add(`export const %L = '%L'`, `${case_1.camelToSnake(fileDesc.package.replace(/\./g, '_'))}_PACKAGE_NAME`, fileDesc.package));
+        const prefix = case_1.camelToSnake(fileDesc.package.replace(/\./g, '_'));
+        chunks.push(ts_poet_1.code `export const ${prefix}_PACKAGE_NAME = '${fileDesc.package}';`);
     }
     if (options.outputEncodeMethods || options.outputJsonMethods) {
         // then add the encoder/decoder/base instance
-        visit(fileDesc, sourceInfo, (fullName, message) => {
-            file = file.addProperty(generateBaseInstance(typeMap, fullName, message, options));
-            let staticMethods = ts_poet_1.CodeBlock.empty().add('export const %L = ', fullName).beginHash();
-            staticMethods = !options.outputEncodeMethods
-                ? staticMethods
-                : staticMethods
-                    .addHashEntry(generateEncode(typeMap, fullName, message, options))
-                    .addHashEntry(generateDecode(typeMap, fullName, message, options));
-            staticMethods = !options.outputJsonMethods
-                ? staticMethods
-                : staticMethods
-                    .addHashEntry(generateFromJson(typeMap, fullName, message, options))
-                    .addHashEntry(generateFromPartial(typeMap, fullName, message, options))
-                    .addHashEntry(generateToJson(typeMap, fullName, message, options));
-            staticMethods = staticMethods.endHash().add(';').newLine();
-            file = file.addCode(staticMethods);
+        visit_1.visit(fileDesc, sourceInfo, (fullName, message) => {
+            chunks.push(generateBaseInstance(ctx, fullName, message));
+            const staticMethods = [];
+            if (options.outputEncodeMethods) {
+                staticMethods.push(generateEncode(ctx, fullName, message));
+                staticMethods.push(generateDecode(ctx, fullName, message));
+            }
+            if (options.outputJsonMethods) {
+                staticMethods.push(generateFromJson(ctx, fullName, message));
+                staticMethods.push(generateFromPartial(ctx, fullName, message));
+                staticMethods.push(generateToJson(ctx, fullName, message));
+            }
+            chunks.push(ts_poet_1.code `
+          export const ${ts_poet_1.def(fullName)} = {
+            ${ts_poet_1.joinCode(staticMethods, { on: ',\n\n' })}
+          };
+        `);
         }, options);
     }
-    visitServices(fileDesc, sourceInfo, (serviceDesc, sInfo) => {
+    let hasStreamingMethods = false;
+    visit_1.visitServices(fileDesc, sourceInfo, (serviceDesc, sInfo) => {
         if (options.nestJs) {
             // NestJS is sufficiently different that we special case all of the client/server interfaces
             // generate nestjs grpc client interface
-            file = file.addInterface(generate_nestjs_1.generateNestjsServiceClient(typeMap, fileDesc, sInfo, serviceDesc, options));
+            chunks.push(generate_nestjs_1.generateNestjsServiceClient(ctx, fileDesc, sInfo, serviceDesc));
             // and the service controller interface
-            file = file.addInterface(generate_nestjs_1.generateNestjsServiceController(typeMap, fileDesc, sInfo, serviceDesc, options));
+            chunks.push(generate_nestjs_1.generateNestjsServiceController(ctx, fileDesc, sInfo, serviceDesc));
             // generate nestjs grpc service controller decorator
-            file = file.addFunction(generate_nestjs_1.generateNestjsGrpcServiceMethodsDecorator(serviceDesc, options));
+            chunks.push(generate_nestjs_1.generateNestjsGrpcServiceMethodsDecorator(ctx, serviceDesc));
             let serviceConstName = `${case_1.camelToSnake(serviceDesc.name)}_NAME`;
             if (!serviceDesc.name.toLowerCase().endsWith('service')) {
                 serviceConstName = `${case_1.camelToSnake(serviceDesc.name)}_SERVICE_NAME`;
             }
-            file = file.addCode(ts_poet_1.CodeBlock.empty().add(`export const %L = '%L';`, serviceConstName, serviceDesc.name));
+            chunks.push(ts_poet_1.code `export const ${serviceConstName} = "${serviceDesc.name}";`);
         }
         else {
-            // This could be twirp or grpc-web or JSON (maybe). So far all of their interaces
-            // are fairly similar.
-            file = file.addInterface(generate_services_1.generateService(typeMap, fileDesc, sInfo, serviceDesc, options));
+            // This service could be Twirp or grpc-web or JSON (maybe). So far all of their
+            // interfaces are fairly similar so we share the same service interface.
+            chunks.push(generate_services_1.generateService(ctx, fileDesc, sInfo, serviceDesc));
             if (options.outputClientImpl === true) {
-                file = file.addClass(generate_services_1.generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options));
+                chunks.push(generate_services_1.generateServiceClientImpl(ctx, fileDesc, serviceDesc));
             }
             else if (options.outputClientImpl === 'grpc-web') {
-                file = file.addClass(generate_grpc_web_1.generateGrpcClientImpl(typeMap, fileDesc, serviceDesc, options));
-                file = file.addCode(generate_grpc_web_1.generateGrpcServiceDesc(fileDesc, serviceDesc));
+                chunks.push(generate_grpc_web_1.generateGrpcClientImpl(ctx, fileDesc, serviceDesc));
+                chunks.push(generate_grpc_web_1.generateGrpcServiceDesc(fileDesc, serviceDesc));
                 serviceDesc.method.forEach((method) => {
-                    file = file.addCode(generate_grpc_web_1.generateGrpcMethodDesc(options, typeMap, serviceDesc, method));
+                    chunks.push(generate_grpc_web_1.generateGrpcMethodDesc(ctx, serviceDesc, method));
+                    if (method.serverStreaming) {
+                        hasStreamingMethods = true;
+                    }
                 });
             }
         }
     });
-    if (options.outputClientImpl === true) {
-        file = file.addInterface(generate_services_1.generateRpcType(options));
-    }
-    else if (options.outputClientImpl === 'grpc-web') {
-        file = generate_grpc_web_1.addGrpcWebMisc(options, file);
+    if (options.outputClientImpl && fileDesc.service.length > 0) {
+        if (options.outputClientImpl === true) {
+            chunks.push(generate_services_1.generateRpcType(ctx));
+        }
+        else if (options.outputClientImpl === 'grpc-web') {
+            chunks.push(generate_grpc_web_1.addGrpcWebMisc(ctx, hasStreamingMethods));
+        }
     }
     if (options.useContext) {
-        file = file.addInterface(generate_services_1.generateDataLoadersType());
+        chunks.push(generate_services_1.generateDataLoaderOptionsType());
+        chunks.push(generate_services_1.generateDataLoadersType());
     }
-    let hasAnyTimestamps = false;
-    visit(fileDesc, sourceInfo, (_, messageType) => {
-        hasAnyTimestamps = hasAnyTimestamps || sequency_1.asSequence(messageType.field).any(types_1.isTimestamp);
-    }, options);
-    if (hasAnyTimestamps && (options.outputJsonMethods || options.outputEncodeMethods)) {
-        file = addTimestampMethods(file, options);
+    if (options.outputSchema) {
+        chunks.push(...schema_1.generateSchema(ctx, fileDesc, sourceInfo));
     }
-    const initialOutput = file.toString();
-    // This `.includes(...)` is a pretty fuzzy way of detecting whether we use these utility
-    // methods (to prevent outputting them if its not necessary). In theory, we should be able
-    // to lean on the code generation library more to do this sort of "output only if used",
-    // similar to what it does for auto-imports.
-    if (initialOutput.includes('longToNumber') ||
-        initialOutput.includes('numberToLong') ||
-        initialOutput.includes('longToString')) {
-        file = addLongUtilityMethod(file, options);
-    }
-    if (initialOutput.includes('bytesFromBase64') || initialOutput.includes('base64FromBytes')) {
-        file = addBytesUtilityMethods(file);
-    }
-    if (initialOutput.includes('DeepPartial')) {
-        file = addDeepPartialType(file, options);
-    }
-    return file;
+    chunks.push(...Object.values(u).map((v) => {
+        if ('ifUsed' in v) {
+            return ts_poet_1.code `${v.ifUsed}`;
+        }
+        else {
+            return ts_poet_1.code ``;
+        }
+    }));
+    return [moduleName, ts_poet_1.joinCode(chunks, { on: '\n\n' })];
 }
 exports.generateFile = generateFile;
-function addLongUtilityMethod(file, options) {
-    if (options.forceLong === LongOption.LONG) {
-        return file.addFunction(ts_poet_1.FunctionSpec.create('numberToLong')
-            .addParameter('number', 'number')
-            .addCodeBlock(ts_poet_1.CodeBlock.empty().addStatement('return %T.fromNumber(number)', 'Long*long')));
-    }
-    else if (options.forceLong === LongOption.STRING) {
-        return file.addFunction(ts_poet_1.FunctionSpec.create('longToString')
-            .addParameter('long', 'Long*long')
-            .addCodeBlock(ts_poet_1.CodeBlock.empty().addStatement('return long.toString()')));
-    }
-    else {
-        return file.addFunction(ts_poet_1.FunctionSpec.create('longToNumber').addParameter('long', 'Long*long').addCodeBlock(ts_poet_1.CodeBlock.empty()
-            .beginControlFlow('if (long.gt(Number.MAX_SAFE_INTEGER))')
-            // We use globalThis to avoid conflicts on protobuf types named `Error`.
-            .addStatement('throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER")')
-            .endControlFlow()
-            .addStatement('return long.toNumber()')));
-    }
+/** These are runtime utility methods used by the generated code. */
+function makeUtils(options) {
+    const bytes = makeByteUtils();
+    const longs = makeLongUtils(options, bytes);
+    return {
+        ...bytes,
+        ...makeDeepPartial(options, longs),
+        ...makeTimestampMethods(options, longs),
+        ...longs,
+    };
 }
-function addBytesUtilityMethods(file) {
-    return file.addCode(ts_poet_1.CodeBlock.of(`interface WindowBase64 {
-  atob(b64: string): string;
-  btoa(bin: string): string;
+exports.makeUtils = makeUtils;
+function makeLongUtils(options, bytes) {
+    // Regardless of which `forceLong` config option we're using, we always use
+    // the `long` library to either represent or at least sanity-check 64-bit values
+    const util = ts_poet_1.imp('util@protobufjs/minimal');
+    const configure = ts_poet_1.imp('configure@protobufjs/minimal');
+    // Before esModuleInterop, we had to use 'import * as Long from long` b/c long is
+    // an `export =` module and exports only the Long constructor (which is callable).
+    // See https://www.typescriptlang.org/docs/handbook/modules.html#export--and-import--require.
+    //
+    // With esModuleInterop on, `* as Long` is no longer the constructor, it's the module,
+    // so we want to go back to `import { Long } from long`, which is specifically forbidden
+    // due to `export =` w/o esModuleInterop.
+    //
+    // I.e there is not an import for long that "just works" in both esModuleInterop and
+    // not esModuleInterop.
+    const Long = options.esModuleInterop ? ts_poet_1.imp('Long=long') : ts_poet_1.imp('Long*long');
+    const init = ts_poet_1.conditionalOutput('', ts_poet_1.code `
+      if (${util}.Long !== ${Long}) {
+        ${util}.Long = ${Long} as any;
+        ${configure}();
+      }
+    `);
+    // TODO This is unused?
+    const numberToLong = ts_poet_1.conditionalOutput('numberToLong', ts_poet_1.code `
+      ${init}
+      function numberToLong(number: number) {
+        return ${Long}.fromNumber(number);
+      }
+    `);
+    const longToString = ts_poet_1.conditionalOutput('longToString', ts_poet_1.code `
+      ${init}
+      function longToString(long: ${Long}) {
+        return long.toString();
+      }
+    `);
+    const longToNumber = ts_poet_1.conditionalOutput('longToNumber', ts_poet_1.code `
+      ${init}
+      function longToNumber(long: ${Long}): number {
+        if (long.gt(Number.MAX_SAFE_INTEGER)) {
+          throw new ${bytes.globalThis}.Error("Value is larger than Number.MAX_SAFE_INTEGER")
+        }
+        return long.toNumber();
+      }
+    `);
+    return { numberToLong, longToNumber, longToString, longInit: init, Long };
 }
-
-const windowBase64 = (globalThis as unknown as WindowBase64);
-const atob = windowBase64.atob || ((b64: string) => Buffer.from(b64, 'base64').toString('binary'));
-const btoa = windowBase64.btoa || ((bin: string) => Buffer.from(bin, 'binary').toString('base64'));
-
-function bytesFromBase64(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; ++i) {
-      arr[i] = bin.charCodeAt(i);
-  }
-  return arr;
+function makeByteUtils() {
+    const globalThis = ts_poet_1.conditionalOutput('globalThis', ts_poet_1.code `
+      declare var self: any | undefined;
+      declare var window: any | undefined;
+      var globalThis: any = (() => {
+        if (typeof globalThis !== "undefined") return globalThis;
+        if (typeof self !== "undefined") return self;
+        if (typeof window !== "undefined") return window;
+        if (typeof global !== "undefined") return global;
+        throw "Unable to locate global object";
+      })();
+    `);
+    const bytesFromBase64 = ts_poet_1.conditionalOutput('bytesFromBase64', ts_poet_1.code `
+      const atob: (b64: string) => string = ${globalThis}.atob || ((b64) => ${globalThis}.Buffer.from(b64, 'base64').toString('binary'));
+      function bytesFromBase64(b64: string): Uint8Array {
+        const bin = atob(b64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; ++i) {
+            arr[i] = bin.charCodeAt(i);
+        }
+        return arr;
+      }
+    `);
+    const base64FromBytes = ts_poet_1.conditionalOutput('base64FromBytes', ts_poet_1.code `
+      const btoa : (bin: string) => string = ${globalThis}.btoa || ((bin) => ${globalThis}.Buffer.from(bin, 'binary').toString('base64'));
+      function base64FromBytes(arr: Uint8Array): string {
+        const bin: string[] = [];
+        for (let i = 0; i < arr.byteLength; ++i) {
+          bin.push(String.fromCharCode(arr[i]));
+        }
+        return btoa(bin.join(''));
+      }
+    `);
+    return { globalThis, bytesFromBase64, base64FromBytes };
 }
-
-function base64FromBytes(arr: Uint8Array): string {
-  const bin: string[] = [];
-  for (let i = 0; i < arr.byteLength; ++i) {
-    bin.push(String.fromCharCode(arr[i]));
-  }
-  return btoa(bin.join(''));
-}`));
-}
-function addDeepPartialType(file, options) {
+function makeDeepPartial(options, longs) {
     let oneofCase = '';
-    if (options.oneof === OneofOption.UNIONS) {
+    if (options.oneof === options_1.OneofOption.UNIONS) {
         oneofCase = `
-  : T extends { $case: string }
-  ? { [K in keyof Omit<T, '$case'>]?: DeepPartial<T[K]> } & { $case: T['$case'] }`;
+      : T extends { $case: string }
+      ? { [K in keyof Omit<T, '$case'>]?: DeepPartial<T[K]> } & { $case: T['$case'] }
+    `;
     }
+    const maybeExport = options.exportCommonSymbols ? 'export' : '';
+    const maybeLong = options.forceLong === options_1.LongOption.LONG ? ts_poet_1.code ` | ${longs.Long}` : '';
     // Based on the type from ts-essentials
-    return file.addCode(ts_poet_1.CodeBlock.empty().add(`type Builtin = Date | Function | Uint8Array | string | number | undefined;
-type DeepPartial<T> = T extends Builtin
-  ? T
-  : T extends Array<infer U>
-  ? Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U>
-  ? ReadonlyArray<DeepPartial<U>>${oneofCase}
-  : T extends {}
-  ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;`));
+    const DeepPartial = ts_poet_1.conditionalOutput('DeepPartial', ts_poet_1.code `
+      type Builtin = Date | Function | Uint8Array | string | number | undefined${maybeLong};
+      ${maybeExport} type DeepPartial<T> = T extends Builtin
+        ? T
+        : T extends Array<infer U>
+        ? Array<DeepPartial<U>>
+        : T extends ReadonlyArray<infer U>
+        ? ReadonlyArray<DeepPartial<U>>${oneofCase}
+        : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
+    `);
+    return { DeepPartial };
 }
-function addTimestampMethods(file, options) {
-    const timestampType = 'Timestamp@./google/protobuf/timestamp';
-    let secondsCodeLine = 'const seconds = date.getTime() / 1_000';
+function makeTimestampMethods(options, longs) {
+    const Timestamp = ts_poet_1.imp('Timestamp@./google/protobuf/timestamp');
+    let seconds = 'date.getTime() / 1_000';
     let toNumberCode = 't.seconds';
-    if (options.forceLong === LongOption.LONG) {
+    if (options.forceLong === options_1.LongOption.LONG) {
         toNumberCode = 't.seconds.toNumber()';
-        secondsCodeLine = 'const seconds = numberToLong(date.getTime() / 1_000)';
+        seconds = ts_poet_1.code `${longs.numberToLong}(date.getTime() / 1_000)`;
     }
-    else if (options.forceLong === LongOption.STRING) {
+    else if (options.forceLong === options_1.LongOption.STRING) {
         toNumberCode = 'Number(t.seconds)';
-        secondsCodeLine = 'const seconds = (date.getTime() / 1_000).toString()';
+        seconds = '(date.getTime() / 1_000).toString()';
     }
-    if (options.outputJsonMethods) {
-        file = file.addFunction(ts_poet_1.FunctionSpec.create('fromJsonTimestamp')
-            .addParameter('o', 'any')
-            .returns('Date')
-            .addCodeBlock(ts_poet_1.CodeBlock.empty()
-            .beginControlFlow('if (o instanceof Date)')
-            .addStatement('return o')
-            .nextControlFlow('else if (typeof o === "string")')
-            .addStatement('return new Date(o)')
-            .nextControlFlow('else')
-            .addStatement('return fromTimestamp(Timestamp.fromJSON(o))')
-            .endControlFlow()));
-    }
-    return file
-        .addFunction(ts_poet_1.FunctionSpec.create('toTimestamp')
-        .addParameter('date', 'Date')
-        .returns(timestampType)
-        .addCodeBlock(ts_poet_1.CodeBlock.empty()
-        .addStatement(secondsCodeLine)
-        .addStatement('const nanos = (date.getTime() %% 1_000) * 1_000_000')
-        .addStatement('return { seconds, nanos }')))
-        .addFunction(ts_poet_1.FunctionSpec.create('fromTimestamp')
-        .addParameter('t', timestampType)
-        .returns('Date')
-        .addCodeBlock(ts_poet_1.CodeBlock.empty()
-        .addStatement('let millis = %L * 1_000', toNumberCode)
-        .addStatement('millis += t.nanos / 1_000_000')
-        .addStatement('return new Date(millis)')));
-}
-const UNRECOGNIZED_ENUM_NAME = 'UNRECOGNIZED';
-const UNRECOGNIZED_ENUM_VALUE = -1;
-function generateEnum(options, fullName, enumDesc, sourceInfo) {
-    let code = ts_poet_1.CodeBlock.empty();
-    // Output the `enum { Foo, A = 0, B = 1 }`
-    utils_1.maybeAddComment(sourceInfo, (text) => (code = code.add(`/** %L */\n`, text)));
-    code = code.beginControlFlow('export enum %L', fullName);
-    enumDesc.value.forEach((valueDesc, index) => {
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.enum.value, index);
-        utils_1.maybeAddComment(info, (text) => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-        code = code.add('%L = %L,\n', valueDesc.name, valueDesc.number.toString());
-    });
-    code = code.add('%L = %L,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
-    code = code.endControlFlow();
-    if (options.outputJsonMethods) {
-        code = code.add('\n');
-        code = code.addFunction(generateEnumFromJson(fullName, enumDesc));
-        code = code.add('\n');
-        code = code.addFunction(generateEnumToJson(fullName, enumDesc));
-    }
-    return code;
-}
-/** Generates a function with a big switch statement to decode JSON -> our enum. */
-function generateEnumFromJson(fullName, enumDesc) {
-    let func = ts_poet_1.FunctionSpec.create(`${case_1.camelCase(fullName)}FromJSON`)
-        .addModifiers(ts_poet_1.Modifier.EXPORT)
-        .addParameter('object', 'any')
-        .returns(fullName);
-    let body = ts_poet_1.CodeBlock.empty().beginControlFlow('switch (object)');
-    for (const valueDesc of enumDesc.value) {
-        body = body
-            .add('case %L:\n', valueDesc.number)
-            .add('case %S:%>\n', valueDesc.name)
-            .addStatement('return %L.%L%<', fullName, valueDesc.name);
-    }
-    body = body
-        .add('case %L:\n', UNRECOGNIZED_ENUM_VALUE)
-        .add('case %S:\n', UNRECOGNIZED_ENUM_NAME)
-        .add('default:%>\n')
-        .addStatement('return %L.%L%<', fullName, UNRECOGNIZED_ENUM_NAME)
-        .endControlFlow();
-    return func.addCodeBlock(body);
-}
-/** Generates a function with a big switch statement to encode our enum -> JSON. */
-function generateEnumToJson(fullName, enumDesc) {
-    let func = ts_poet_1.FunctionSpec.create(`${case_1.camelCase(fullName)}ToJSON`)
-        .addModifiers(ts_poet_1.Modifier.EXPORT)
-        .addParameter('object', fullName)
-        .returns('string');
-    let body = ts_poet_1.CodeBlock.empty().beginControlFlow('switch (object)');
-    for (const valueDesc of enumDesc.value) {
-        body = body.add('case %L.%L:%>\n', fullName, valueDesc.name).addStatement('return %S%<', valueDesc.name);
-    }
-    body = body.add('default:%>\n').addStatement('return "UNKNOWN"%<').endControlFlow();
-    return func.addCodeBlock(body);
+    const toTimestamp = ts_poet_1.conditionalOutput('toTimestamp', ts_poet_1.code `
+      function toTimestamp(date: Date): ${Timestamp} {
+        const seconds = ${seconds};
+        const nanos = (date.getTime() % 1_000) * 1_000_000;
+        return { seconds, nanos };
+      }
+    `);
+    const fromTimestamp = ts_poet_1.conditionalOutput('fromTimestamp', ts_poet_1.code `
+      function fromTimestamp(t: ${Timestamp}): Date {
+        let millis = ${toNumberCode} * 1_000;
+        millis += t.nanos / 1_000_000;
+        return new Date(millis);
+      }
+    `);
+    const fromJsonTimestamp = ts_poet_1.conditionalOutput('fromJsonTimestamp', ts_poet_1.code `
+      function fromJsonTimestamp(o: any): Date {
+        if (o instanceof Date) {
+          return o;
+        } else if (typeof o === "string") {
+          return new Date(o);
+        } else {
+          return ${fromTimestamp}(Timestamp.fromJSON(o));
+        }
+      }
+    `);
+    return { toTimestamp, fromTimestamp, fromJsonTimestamp };
 }
 // When useOptionals=true, non-scalar fields are translated into optional properties.
 function isOptionalProperty(field, options) {
     return options.useOptionals && types_1.isMessage(field) && !types_1.isRepeated(field);
 }
 // Create the interface with properties
-function generateInterfaceDeclaration(typeMap, fullName, messageDesc, sourceInfo, options) {
-    let message = ts_poet_1.InterfaceSpec.create(fullName).addModifiers(ts_poet_1.Modifier.EXPORT);
-    utils_1.maybeAddComment(sourceInfo, (text) => (message = message.addJavadoc(text)));
-    let processedOneofs = new Set();
+function generateInterfaceDeclaration(ctx, fullName, messageDesc, sourceInfo) {
+    var _a;
+    const { options } = ctx;
+    const chunks = [];
+    utils_1.maybeAddComment(sourceInfo, chunks, (_a = messageDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
+    chunks.push(ts_poet_1.code `export interface ${fullName} {`);
+    // When oneof=unions, we generate a single property with an ADT per `oneof` clause.
+    const processedOneofs = new Set();
     messageDesc.field.forEach((fieldDesc, index) => {
-        // When oneof=unions, we generate a single property with an algebraic
-        // datatype (ADT) per `oneof` clause.
-        if (options.oneof === OneofOption.UNIONS && types_1.isWithinOneOf(fieldDesc)) {
+        var _a;
+        if (types_1.isWithinOneOfThatShouldBeUnion(options, fieldDesc)) {
             const { oneofIndex } = fieldDesc;
             if (!processedOneofs.has(oneofIndex)) {
                 processedOneofs.add(oneofIndex);
-                const prop = generateOneofProperty(typeMap, messageDesc, oneofIndex, sourceInfo, options);
-                message = message.addProperty(prop);
+                chunks.push(generateOneofProperty(ctx, messageDesc, oneofIndex, sourceInfo));
             }
             return;
         }
-        let prop = ts_poet_1.PropertySpec.create(case_1.maybeSnakeToCamel(fieldDesc.name, options), types_1.toTypeName(typeMap, messageDesc, fieldDesc, options), isOptionalProperty(fieldDesc, options));
         const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index);
-        utils_1.maybeAddComment(info, (text) => (prop = prop.addJavadoc(text)));
-        message = message.addProperty(prop);
+        utils_1.maybeAddComment(info, chunks, (_a = fieldDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
+        const name = case_1.maybeSnakeToCamel(fieldDesc.name, options);
+        const type = types_1.toTypeName(ctx, messageDesc, fieldDesc);
+        const q = isOptionalProperty(fieldDesc, options) ? '?' : '';
+        chunks.push(ts_poet_1.code `${name}${q}: ${type}, `);
     });
-    return message;
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
-function generateOneofProperty(typeMap, messageDesc, oneofIndex, sourceInfo, options) {
-    let fields = messageDesc.field.filter((field) => {
-        return types_1.isWithinOneOf(field) && field.oneofIndex === oneofIndex;
-    });
-    let unionType = ts_poet_1.TypeNames.unionType(...fields.map((f) => {
+function generateOneofProperty(ctx, messageDesc, oneofIndex, sourceInfo) {
+    const { options } = ctx;
+    const fields = messageDesc.field.filter((field) => types_1.isWithinOneOf(field) && field.oneofIndex === oneofIndex);
+    const unionType = ts_poet_1.joinCode(fields.map((f) => {
         let fieldName = case_1.maybeSnakeToCamel(f.name, options);
-        let typeName = types_1.toTypeName(typeMap, messageDesc, f, options);
-        return ts_poet_1.TypeNames.anonymousType(new ts_poet_1.Member('$case', ts_poet_1.TypeNames.typeLiteral(fieldName), false), new ts_poet_1.Member(fieldName, typeName, /* optional */ false));
-    }));
-    let prop = ts_poet_1.PropertySpec.create(case_1.maybeSnakeToCamel(messageDesc.oneofDecl[oneofIndex].name, options), unionType, true // optional
-    );
+        let typeName = types_1.toTypeName(ctx, messageDesc, f);
+        return ts_poet_1.code `{ $case: '${fieldName}', ${fieldName}: ${typeName} }`;
+    }), { on: ' | ' });
+    const name = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[oneofIndex].name, options);
+    return ts_poet_1.code `${name}?: ${unionType},`;
+    /*
     // Ideally we'd put the comments for each oneof field next to the anonymous
     // type we've created in the type union above, but ts-poet currently lacks
     // that ability. For now just concatenate all comments into one big one.
-    let comments = [];
-    const info = sourceInfo.lookup(sourceInfo_1.Fields.message.oneof_decl, oneofIndex);
-    utils_1.maybeAddComment(info, (text) => comments.push(text));
+    let comments: Array<string> = [];
+    const info = sourceInfo.lookup(Fields.message.oneof_decl, oneofIndex);
+    maybeAddComment(info, (text) => comments.push(text));
     messageDesc.field.forEach((field, index) => {
-        if (!types_1.isWithinOneOf(field) || field.oneofIndex !== oneofIndex) {
-            return;
-        }
-        const info = sourceInfo.lookup(sourceInfo_1.Fields.message.field, index);
-        const name = case_1.maybeSnakeToCamel(field.name, options);
-        utils_1.maybeAddComment(info, (text) => comments.push(name + '\n' + text));
+      if (!isWithinOneOf(field) || field.oneofIndex !== oneofIndex) {
+        return;
+      }
+      const info = sourceInfo.lookup(Fields.message.field, index);
+      const name = maybeSnakeToCamel(field.name, options);
+      maybeAddComment(info, (text) => comments.push(name + '\n' + text));
     });
     if (comments.length) {
-        prop = prop.addJavadoc(comments.join('\n'));
+      prop = prop.addJavadoc(comments.join('\n'));
     }
     return prop;
+    */
 }
-function generateBaseInstance(typeMap, fullName, messageDesc, options) {
-    // Create a 'base' instance with default values for decode to use as a prototype
-    let baseMessage = ts_poet_1.PropertySpec.create('base' + fullName, ts_poet_1.TypeNames.anyType('object')).addModifiers(ts_poet_1.Modifier.CONST);
-    let initialValue = ts_poet_1.CodeBlock.empty().beginHash();
-    sequency_1.asSequence(messageDesc.field)
-        .filterNot(types_1.isWithinOneOf)
-        .forEach((field) => {
-        initialValue = initialValue.addHashEntry(case_1.maybeSnakeToCamel(field.name, options), types_1.defaultValue(typeMap, field, options));
+// Create a 'base' instance with default values for decode to use as a prototype
+function generateBaseInstance(ctx, fullName, messageDesc) {
+    const fields = messageDesc.field
+        .filter((field) => !types_1.isWithinOneOf(field))
+        .map((field) => [field, types_1.defaultValue(ctx, field)])
+        .filter(([field, val]) => val !== 'undefined' && !types_1.isBytes(field))
+        .map(([field, val]) => {
+        const name = case_1.maybeSnakeToCamel(field.name, ctx.options);
+        return ts_poet_1.code `${name}: ${val}`;
     });
-    return baseMessage.initializerBlock(initialValue.endHash());
-}
-function visit(proto, sourceInfo, messageFn, options, enumFn = () => { }, tsPrefix = '', protoPrefix = '') {
-    const isRootFile = proto instanceof FileDescriptorProto;
-    const childEnumType = isRootFile ? sourceInfo_1.Fields.file.enum_type : sourceInfo_1.Fields.message.enum_type;
-    proto.enumType.forEach((enumDesc, index) => {
-        // I.e. Foo_Bar.Zaz_Inner
-        const protoFullName = protoPrefix + enumDesc.name;
-        // I.e. FooBar_ZazInner
-        const tsFullName = tsPrefix + case_1.maybeSnakeToCamel(enumDesc.name, options);
-        const nestedSourceInfo = sourceInfo.open(childEnumType, index);
-        enumFn(tsFullName, enumDesc, nestedSourceInfo, protoFullName);
-    });
-    const messages = proto instanceof FileDescriptorProto ? proto.messageType : proto.nestedType;
-    const childType = isRootFile ? sourceInfo_1.Fields.file.message_type : sourceInfo_1.Fields.message.nested_type;
-    messages.forEach((message, index) => {
-        // I.e. Foo_Bar.Zaz_Inner
-        const protoFullName = protoPrefix + message.name;
-        // I.e. FooBar_ZazInner
-        const tsFullName = tsPrefix + case_1.maybeSnakeToCamel(messageName(message), options);
-        const nestedSourceInfo = sourceInfo.open(childType, index);
-        messageFn(tsFullName, message, nestedSourceInfo, protoFullName);
-        visit(message, nestedSourceInfo, messageFn, options, enumFn, tsFullName + '_', protoFullName + '.');
-    });
-}
-exports.visit = visit;
-function visitServices(proto, sourceInfo, serviceFn) {
-    proto.service.forEach((serviceDesc, index) => {
-        const nestedSourceInfo = sourceInfo.open(sourceInfo_1.Fields.file.service, index);
-        serviceFn(serviceDesc, nestedSourceInfo);
-    });
+    return ts_poet_1.code `const base${fullName}: object = { ${ts_poet_1.joinCode(fields, { on: ',' })} };`;
 }
 /** Creates a function to decode a message by loop overing the tags. */
-function generateDecode(typeMap, fullName, messageDesc, options) {
+function generateDecode(ctx, fullName, messageDesc) {
+    const { options, utils } = ctx;
+    const chunks = [];
     // create the basic function declaration
-    let func = ts_poet_1.FunctionSpec.create('decode')
-        .addParameter('input', ts_poet_1.TypeNames.unionType('Uint8Array', 'Reader@protobufjs/minimal'))
-        .addParameter('length?', 'number')
-        .returns(fullName);
-    // add the initial end/message
-    func = func
-        .addStatement('const reader = input instanceof Uint8Array ? new Reader(input) : input')
-        .addStatement('let end = length === undefined ? reader.len : reader.pos + length')
-        .addStatement('const message = { ...base%L } as %L', fullName, fullName);
+    chunks.push(ts_poet_1.code `
+    decode(
+      input: ${Reader} | Uint8Array,
+      length?: number,
+    ): ${fullName} {
+      const reader = input instanceof Uint8Array ? new ${Reader}(input) : input;
+      let end = length === undefined ? reader.len : reader.pos + length;
+      const message = ${utils.globalThis}.Object.create(base${fullName}) as ${fullName};
+  `);
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
-        const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
+        const name = case_1.maybeSnakeToCamel(field.name, options);
+        const value = types_1.isMapType(ctx, messageDesc, field) ? '{}' : '[]';
+        chunks.push(ts_poet_1.code `message.${name} = ${value};`);
     });
     // start the tag loop
-    func = func
-        .beginControlFlow('while (reader.pos < end)')
-        .addStatement('const tag = reader.uint32()')
-        .beginControlFlow('switch (tag >>> 3)');
+    chunks.push(ts_poet_1.code `
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+  `);
     // add a case for each incoming field
     messageDesc.field.forEach((field) => {
         const fieldName = case_1.maybeSnakeToCamel(field.name, options);
-        func = func.addCode('case %L:%>\n', field.number);
+        chunks.push(ts_poet_1.code `case ${field.number}:`);
         // get a generic 'reader.doSomething' bit that is specific to the basic type
         let readSnippet;
         if (types_1.isPrimitive(field)) {
-            readSnippet = ts_poet_1.CodeBlock.of('reader.%L()', types_1.toReaderCall(field));
+            readSnippet = ts_poet_1.code `reader.${types_1.toReaderCall(field)}()`;
             if (types_1.isBytes(field)) {
-                if (options.env === EnvOption.NODE) {
-                    readSnippet = readSnippet.add(' as Buffer');
+                if (options.env === options_1.EnvOption.NODE) {
+                    readSnippet = ts_poet_1.code `${readSnippet} as Buffer`;
                 }
             }
             else if (types_1.basicLongWireType(field.type) !== undefined) {
-                if (options.forceLong === LongOption.LONG) {
-                    readSnippet = ts_poet_1.CodeBlock.of('%L as Long', readSnippet);
+                if (options.forceLong === options_1.LongOption.LONG) {
+                    readSnippet = ts_poet_1.code `${readSnippet} as Long`;
                 }
-                else if (options.forceLong === LongOption.STRING) {
-                    readSnippet = ts_poet_1.CodeBlock.of('longToString(%L as Long)', readSnippet);
+                else if (options.forceLong === options_1.LongOption.STRING) {
+                    readSnippet = ts_poet_1.code `${utils.longToString}(${readSnippet} as Long)`;
                 }
                 else {
-                    readSnippet = ts_poet_1.CodeBlock.of('longToNumber(%L as Long)', readSnippet);
+                    readSnippet = ts_poet_1.code `${utils.longToNumber}(${readSnippet} as Long)`;
                 }
             }
             else if (types_1.isEnum(field)) {
-                readSnippet = readSnippet.add(' as any');
+                readSnippet = ts_poet_1.code `${readSnippet} as any`;
             }
         }
-        else if (types_1.isValueType(field)) {
-            readSnippet = ts_poet_1.CodeBlock.of('%T.decode(reader, reader.uint32()).value', types_1.basicTypeName(typeMap, field, options, { keepValueType: true }));
+        else if (types_1.isValueType(ctx, field)) {
+            const type = types_1.basicTypeName(ctx, field, { keepValueType: true });
+            readSnippet = ts_poet_1.code `${type}.decode(reader, reader.uint32()).value`;
         }
         else if (types_1.isTimestamp(field)) {
-            readSnippet = ts_poet_1.CodeBlock.of('fromTimestamp(%T.decode(reader, reader.uint32()))', types_1.basicTypeName(typeMap, field, options, { keepValueType: true }));
+            const type = types_1.basicTypeName(ctx, field, { keepValueType: true });
+            readSnippet = ts_poet_1.code `${utils.fromTimestamp}(${type}.decode(reader, reader.uint32()))`;
         }
         else if (types_1.isMessage(field)) {
-            readSnippet = ts_poet_1.CodeBlock.of('%T.decode(reader, reader.uint32())', types_1.basicTypeName(typeMap, field, options));
+            const type = types_1.basicTypeName(ctx, field);
+            readSnippet = ts_poet_1.code `${type}.decode(reader, reader.uint32())`;
         }
         else {
             throw new Error(`Unhandled field ${field}`);
         }
         // and then use the snippet to handle repeated fields if necessary
         if (types_1.isRepeated(field)) {
-            if (types_1.isMapType(typeMap, messageDesc, field, options)) {
+            if (types_1.isMapType(ctx, messageDesc, field)) {
                 // We need a unique const within the `cast` statement
-                const entryVariableName = `entry${field.number}`;
-                func = func
-                    .addStatement(`const %L = %L`, entryVariableName, readSnippet)
-                    .beginControlFlow('if (%L.value !== undefined)', entryVariableName)
-                    .addStatement('message.%L[%L.key] = %L.value', fieldName, entryVariableName, entryVariableName)
-                    .endControlFlow();
+                const varName = `entry${field.number}`;
+                chunks.push(ts_poet_1.code `
+          const ${varName} = ${readSnippet};
+          if (${varName}.value !== undefined) {
+            message.${fieldName}[${varName}.key] = ${varName}.value;
+          }
+        `);
             }
             else if (types_1.packedType(field.type) === undefined) {
-                func = func.addStatement(`message.%L.push(%L)`, fieldName, readSnippet);
+                chunks.push(ts_poet_1.code `message.${fieldName}.push(${readSnippet});`);
             }
             else {
-                func = func
-                    .beginControlFlow('if ((tag & 7) === 2)')
-                    .addStatement('const end2 = reader.uint32() + reader.pos')
-                    .beginControlFlow('while (reader.pos < end2)')
-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet)
-                    .endControlFlow()
-                    .nextControlFlow('else')
-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet)
-                    .endControlFlow();
+                chunks.push(ts_poet_1.code `
+          if ((tag & 7) === 2) {
+            const end2 = reader.uint32() + reader.pos;
+            while (reader.pos < end2) {
+              message.${fieldName}.push(${readSnippet});
+            }
+          } else {
+            message.${fieldName}.push(${readSnippet});
+          }
+        `);
             }
         }
-        else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
+        else if (types_1.isWithinOneOfThatShouldBeUnion(options, field)) {
             let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
-            func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet);
+            chunks.push(ts_poet_1.code `message.${oneofName} = { $case: '${fieldName}', ${fieldName}: ${readSnippet} };`);
         }
         else {
-            func = func.addStatement(`message.%L = %L`, fieldName, readSnippet);
+            chunks.push(ts_poet_1.code `message.${fieldName} = ${readSnippet};`);
         }
-        func = func.addStatement('break%<');
+        chunks.push(ts_poet_1.code `break;`);
     });
-    func = func.addCode('default:%>\n').addStatement('reader.skipType(tag & 7)').addStatement('break%<');
+    chunks.push(ts_poet_1.code `
+    default:
+      reader.skipType(tag & 7);
+      break;
+  `);
     // and then wrap up the switch/while/return
-    func = func.endControlFlow().endControlFlow().addStatement('return message');
-    return func;
+    chunks.push(ts_poet_1.code `}`);
+    chunks.push(ts_poet_1.code `}`);
+    chunks.push(ts_poet_1.code `return message;`);
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
+const Writer = ts_poet_1.imp('Writer@protobufjs/minimal');
+const Reader = ts_poet_1.imp('Reader@protobufjs/minimal');
 /** Creates a function to encode a message by loop overing the tags. */
-function generateEncode(typeMap, fullName, messageDesc, options) {
+function generateEncode(ctx, fullName, messageDesc) {
+    const { options, utils } = ctx;
+    const chunks = [];
     // create the basic function declaration
-    let func = ts_poet_1.FunctionSpec.create('encode')
-        .addParameter(messageDesc.field.length > 0 ? 'message' : '_', fullName)
-        .addParameter('writer', 'Writer@protobufjs/minimal', { defaultValueField: ts_poet_1.CodeBlock.of('Writer.create()') })
-        .returns('Writer@protobufjs/minimal');
+    chunks.push(ts_poet_1.code `
+    encode(
+      ${messageDesc.field.length > 0 ? 'message' : '_'}: ${fullName},
+      writer: ${Writer} = ${Writer}.create(),
+    ): ${Writer} {
+  `);
     // then add a case for each field
     messageDesc.field.forEach((field) => {
         const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         // get a generic writer.doSomething based on the basic type
         let writeSnippet;
-        if (types_1.isPrimitive(field)) {
+        if (types_1.isScalar(field) || types_1.isEnum(field)) {
             const tag = ((field.number << 3) | types_1.basicWireType(field.type)) >>> 0;
-            writeSnippet = (place) => ts_poet_1.CodeBlock.of('writer.uint32(%L).%L(%L)', tag, types_1.toReaderCall(field), place);
+            writeSnippet = (place) => ts_poet_1.code `writer.uint32(${tag}).${types_1.toReaderCall(field)}(${place})`;
         }
         else if (types_1.isTimestamp(field)) {
             const tag = ((field.number << 3) | 2) >>> 0;
-            writeSnippet = (place) => ts_poet_1.CodeBlock.of('%T.encode(toTimestamp(%L), writer.uint32(%L).fork()).ldelim()', types_1.basicTypeName(typeMap, field, options, { keepValueType: true }), place, tag);
+            const type = types_1.basicTypeName(ctx, field, { keepValueType: true });
+            writeSnippet = (place) => ts_poet_1.code `${type}.encode(${utils.toTimestamp}(${place}), writer.uint32(${tag}).fork()).ldelim()`;
         }
-        else if (types_1.isValueType(field)) {
+        else if (types_1.isValueType(ctx, field)) {
             const tag = ((field.number << 3) | 2) >>> 0;
-            writeSnippet = (place) => ts_poet_1.CodeBlock.of('%T.encode({ value: %L! }, writer.uint32(%L).fork()).ldelim()', types_1.basicTypeName(typeMap, field, options, { keepValueType: true }), place, tag);
+            const type = types_1.basicTypeName(ctx, field, { keepValueType: true });
+            writeSnippet = (place) => ts_poet_1.code `${type}.encode({ value: ${place}! }, writer.uint32(${tag}).fork()).ldelim()`;
         }
         else if (types_1.isMessage(field)) {
             const tag = ((field.number << 3) | 2) >>> 0;
-            writeSnippet = (place) => ts_poet_1.CodeBlock.of('%T.encode(%L, writer.uint32(%L).fork()).ldelim()', types_1.basicTypeName(typeMap, field, options), place, tag);
+            const type = types_1.basicTypeName(ctx, field);
+            writeSnippet = (place) => ts_poet_1.code `${type}.encode(${place}, writer.uint32(${tag}).fork()).ldelim()`;
         }
         else {
             throw new Error(`Unhandled field ${field}`);
         }
         if (types_1.isRepeated(field)) {
-            if (types_1.isMapType(typeMap, messageDesc, field, options)) {
-                func = func
-                    .beginLambda('Object.entries(message.%L).forEach(([key, value]) =>', fieldName)
-                    .addStatement('%L', writeSnippet('{ key: key as any, value }'))
-                    .endLambda(')');
+            if (types_1.isMapType(ctx, messageDesc, field)) {
+                chunks.push(ts_poet_1.code `
+          Object.entries(message.${fieldName}).forEach(([key, value]) => {
+            ${writeSnippet('{ key: key as any, value }')};
+          });
+        `);
             }
             else if (types_1.packedType(field.type) === undefined) {
-                func = func
-                    .beginControlFlow('for (const v of message.%L)', fieldName)
-                    .addStatement('%L', writeSnippet('v!'))
-                    .endControlFlow();
+                chunks.push(ts_poet_1.code `
+          for (const v of message.${fieldName}) {
+            ${writeSnippet('v!')};
+          }
+        `);
             }
             else {
                 const tag = ((field.number << 3) | 2) >>> 0;
-                func = func
-                    .addStatement('writer.uint32(%L).fork()', tag)
-                    .beginControlFlow('for (const v of message.%L)', fieldName)
-                    .addStatement('writer.%L(v)', types_1.toReaderCall(field))
-                    .endControlFlow()
-                    .addStatement('writer.ldelim()');
+                chunks.push(ts_poet_1.code `
+          writer.uint32(${tag}).fork();
+          for (const v of message.${fieldName}) {
+            writer.${types_1.toReaderCall(field)}(v);
+          }
+          writer.ldelim();
+        `);
             }
         }
-        else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
+        else if (types_1.isWithinOneOfThatShouldBeUnion(options, field)) {
             let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
-            func = func
-                .beginControlFlow(`if (message.%L?.$case === '%L' && message.%L?.%L !== %L)`, oneofName, fieldName, oneofName, fieldName, types_1.defaultValue(typeMap, field, options))
-                .addStatement('%L', writeSnippet(`message.${oneofName}.${fieldName}`))
-                .endControlFlow();
+            chunks.push(ts_poet_1.code `
+        if (message.${oneofName}?.$case === '${fieldName}') {
+          ${writeSnippet(`message.${oneofName}.${fieldName}`)};
         }
-        else if (types_1.isWithinOneOf(field) || types_1.isMessage(field)) {
-            func = func
-                .beginControlFlow('if (message.%L !== undefined && message.%L !== %L)', fieldName, fieldName, types_1.defaultValue(typeMap, field, options))
-                .addStatement('%L', writeSnippet(`message.${fieldName}`))
-                .endControlFlow();
+      `);
+        }
+        else if (types_1.isWithinOneOf(field)) {
+            // Oneofs don't have a default value check b/c they need to denote which-oneof presence
+            chunks.push(ts_poet_1.code `
+        if (message.${fieldName} !== undefined) {
+          ${writeSnippet(`message.${fieldName}`)};
+        }
+      `);
+        }
+        else if (types_1.isMessage(field)) {
+            chunks.push(ts_poet_1.code `
+        if (message.${fieldName} !== undefined) {
+          ${writeSnippet(`message.${fieldName}`)};
+        }
+      `);
+        }
+        else if (types_1.isScalar(field) || types_1.isEnum(field)) {
+            chunks.push(ts_poet_1.code `
+        if (${types_1.notDefaultCheck(ctx, field, `message.${fieldName}`)}) {
+          ${writeSnippet(`message.${fieldName}`)};
+        }
+      `);
         }
         else {
-            func = func.addStatement('%L', writeSnippet(`message.${fieldName}`));
+            chunks.push(ts_poet_1.code `${writeSnippet(`message.${fieldName}`)};`);
         }
     });
-    return func.addStatement('return writer');
+    chunks.push(ts_poet_1.code `return writer;`);
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
 /**
  * Creates a function to decode a message from JSON.
@@ -588,17 +592,19 @@ function generateEncode(typeMap, fullName, messageDesc, options) {
  * This is very similar to decode, we loop through looking for properties, with
  * a few special cases for https://developers.google.com/protocol-buffers/docs/proto3#json.
  * */
-function generateFromJson(typeMap, fullName, messageDesc, options) {
+function generateFromJson(ctx, fullName, messageDesc) {
+    const { options, utils, typeMap } = ctx;
+    const chunks = [];
     // create the basic function declaration
-    let func = ts_poet_1.FunctionSpec.create('fromJSON')
-        .addParameter(messageDesc.field.length > 0 ? 'object' : '_', 'any')
-        .returns(fullName);
-    // create the message
-    func = func.addStatement('const message = { ...base%L } as %L', fullName, fullName);
+    chunks.push(ts_poet_1.code `
+    fromJSON(${messageDesc.field.length > 0 ? 'object' : '_'}: any): ${fullName} {
+      const message = ${utils.globalThis}.Object.create(base${fullName}) as ${fullName};
+  `);
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
-        const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
+        const value = types_1.isMapType(ctx, messageDesc, field) ? '{}' : '[]';
+        const name = case_1.maybeSnakeToCamel(field.name, options);
+        chunks.push(ts_poet_1.code `message.${name} = ${value};`);
     });
     // add a check for each incoming field
     messageDesc.field.forEach((field) => {
@@ -607,60 +613,74 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
         const readSnippet = (from) => {
             if (types_1.isEnum(field)) {
                 const fromJson = types_1.getEnumMethod(typeMap, field.typeName, 'FromJSON');
-                return ts_poet_1.CodeBlock.of('%T(%L)', fromJson, from);
+                return ts_poet_1.code `${fromJson}(${from})`;
             }
             else if (types_1.isPrimitive(field)) {
                 // Convert primitives using the String(value)/Number(value)/bytesFromBase64(value)
                 if (types_1.isBytes(field)) {
-                    if (options.env === EnvOption.NODE) {
-                        return ts_poet_1.CodeBlock.of('Buffer.from(bytesFromBase64(%L))', from);
+                    if (options.env === options_1.EnvOption.NODE) {
+                        return ts_poet_1.code `Buffer.from(${utils.bytesFromBase64}(${from}))`;
                     }
                     else {
-                        return ts_poet_1.CodeBlock.of('bytesFromBase64(%L)', from);
+                        return ts_poet_1.code `${utils.bytesFromBase64}(${from})`;
                     }
                 }
-                else if (types_1.isLong(field) && options.forceLong === LongOption.LONG) {
-                    const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
-                    return ts_poet_1.CodeBlock.of('%L.fromString(%L)', cstr, from);
+                else if (types_1.isLong(field) && options.forceLong === options_1.LongOption.LONG) {
+                    const cstr = case_1.capitalize(types_1.basicTypeName(ctx, field, { keepValueType: true }).toCodeString());
+                    return ts_poet_1.code `${cstr}.fromString(${from})`;
                 }
                 else {
-                    const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, field, options, { keepValueType: true }).toString());
-                    return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                    const cstr = case_1.capitalize(types_1.basicTypeName(ctx, field, { keepValueType: true }).toCodeString());
+                    return ts_poet_1.code `${cstr}(${from})`;
                 }
             }
             else if (types_1.isTimestamp(field)) {
-                return ts_poet_1.CodeBlock.of('fromJsonTimestamp(%L)', from);
+                return ts_poet_1.code `${utils.fromJsonTimestamp}(${from})`;
             }
-            else if (types_1.isValueType(field)) {
-                return ts_poet_1.CodeBlock.of('%L(%L)', case_1.capitalize(types_1.valueTypeName(field).toString()), from);
+            else if (types_1.isValueType(ctx, field)) {
+                const valueType = types_1.valueTypeName(ctx, field.typeName);
+                if (types_1.isLongValueType(field) && options.forceLong === options_1.LongOption.LONG) {
+                    return ts_poet_1.code `${case_1.capitalize(valueType.toCodeString())}.fromValue(${from})`;
+                }
+                else if (types_1.isBytesValueType(field)) {
+                    return ts_poet_1.code `new ${case_1.capitalize(valueType.toCodeString())}(${from})`;
+                }
+                else {
+                    return ts_poet_1.code `${case_1.capitalize(valueType.toCodeString())}(${from})`;
+                }
             }
             else if (types_1.isMessage(field)) {
-                if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
+                if (types_1.isRepeated(field) && types_1.isMapType(ctx, messageDesc, field)) {
                     const valueType = typeMap.get(field.typeName)[2].field[1];
                     if (types_1.isPrimitive(valueType)) {
                         // TODO Can we not copy/paste this from ^?
                         if (types_1.isBytes(valueType)) {
-                            if (options.env === EnvOption.NODE) {
-                                return ts_poet_1.CodeBlock.of('Buffer.from(bytesFromBase64(%L as string))', from);
+                            if (options.env === options_1.EnvOption.NODE) {
+                                return ts_poet_1.code `Buffer.from(${utils.bytesFromBase64}(${from} as string))`;
                             }
                             else {
-                                return ts_poet_1.CodeBlock.of('bytesFromBase64(%L as string)', from);
+                                return ts_poet_1.code `${utils.bytesFromBase64}(${from} as string)`;
                             }
                         }
+                        else if (types_1.isEnum(valueType)) {
+                            return ts_poet_1.code `${from} as number`;
+                        }
                         else {
-                            const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
-                            return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                            const cstr = case_1.capitalize(types_1.basicTypeName(ctx, valueType).toCodeString());
+                            return ts_poet_1.code `${cstr}(${from})`;
                         }
                     }
                     else if (types_1.isTimestamp(valueType)) {
-                        return ts_poet_1.CodeBlock.of('fromJsonTimestamp(%L)', from);
+                        return ts_poet_1.code `${utils.fromJsonTimestamp}(${from})`;
                     }
                     else {
-                        return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
+                        const type = types_1.basicTypeName(ctx, valueType);
+                        return ts_poet_1.code `${type}.fromJSON(${from})`;
                     }
                 }
                 else {
-                    return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                    const type = types_1.basicTypeName(ctx, field);
+                    return ts_poet_1.code `${type}.fromJSON(${from})`;
                 }
             }
             else {
@@ -668,47 +688,56 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
             }
         };
         // and then use the snippet to handle repeated fields if necessary
-        func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
+        chunks.push(ts_poet_1.code `if (object.${fieldName} !== undefined && object.${fieldName} !== null) {`);
         if (types_1.isRepeated(field)) {
-            if (types_1.isMapType(typeMap, messageDesc, field, options)) {
-                func = func
-                    .beginLambda('Object.entries(object.%L).forEach(([key, value]) =>', fieldName)
-                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value'))
-                    .endLambda(')');
+            if (types_1.isMapType(ctx, messageDesc, field)) {
+                const i = maybeCastToNumber(ctx, messageDesc, field, 'key');
+                chunks.push(ts_poet_1.code `
+          Object.entries(object.${fieldName}).forEach(([key, value]) => {
+            message.${fieldName}[${i}] = ${readSnippet('value')};
+          });
+        `);
             }
             else {
-                func = func
-                    .beginControlFlow('for (const e of object.%L)', fieldName)
-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e'))
-                    .endControlFlow();
+                chunks.push(ts_poet_1.code `
+          for (const e of object.${fieldName}) {
+            message.${fieldName}.push(${readSnippet('e')});
+          }
+        `);
             }
         }
-        else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
-            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
-            func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${fieldName}`));
+        else if (types_1.isWithinOneOfThatShouldBeUnion(options, field)) {
+            const oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            chunks.push(ts_poet_1.code `
+        message.${oneofName} = { $case: '${fieldName}', ${fieldName}: ${readSnippet(`object.${fieldName}`)} }
+      `);
         }
         else {
-            func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`));
+            chunks.push(ts_poet_1.code `message.${fieldName} = ${readSnippet(`object.${fieldName}`)};`);
         }
         // set the default value (TODO Support bytes)
         if (!types_1.isRepeated(field) &&
-            field.type !== FieldDescriptorProto.Type.TYPE_BYTES &&
-            options.oneof !== OneofOption.UNIONS) {
-            func = func.nextControlFlow('else');
-            func = func.addStatement(`message.%L = %L`, fieldName, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
+            field.type !== descriptor_1.FieldDescriptorProto_Type.TYPE_BYTES &&
+            options.oneof !== options_1.OneofOption.UNIONS) {
+            const v = types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(ctx, field);
+            chunks.push(ts_poet_1.code `} else {`);
+            chunks.push(ts_poet_1.code `message.${fieldName} = ${v};`);
         }
-        func = func.endControlFlow();
+        chunks.push(ts_poet_1.code `}`);
     });
     // and then wrap up the switch/while/return
-    func = func.addStatement('return message');
-    return func;
+    chunks.push(ts_poet_1.code `return message`);
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
-function generateToJson(typeMap, fullName, messageDesc, options) {
+function generateToJson(ctx, fullName, messageDesc) {
+    const { options, utils, typeMap } = ctx;
+    const chunks = [];
     // create the basic function declaration
-    let func = ts_poet_1.FunctionSpec.create('toJSON')
-        .addParameter(messageDesc.field.length > 0 ? 'message' : '_', fullName)
-        .returns('unknown');
-    func = func.addCodeBlock(ts_poet_1.CodeBlock.empty().addStatement('const obj: any = {}'));
+    chunks.push(ts_poet_1.code `
+    toJSON(${messageDesc.field.length > 0 ? 'message' : '_'}: ${fullName}): unknown {
+      const obj: any = {};
+  `);
     // then add a case for each field
     messageDesc.field.forEach((field) => {
         const fieldName = case_1.maybeSnakeToCamel(field.name, options);
@@ -716,112 +745,136 @@ function generateToJson(typeMap, fullName, messageDesc, options) {
             if (types_1.isEnum(field)) {
                 const toJson = types_1.getEnumMethod(typeMap, field.typeName, 'ToJSON');
                 return types_1.isWithinOneOf(field)
-                    ? ts_poet_1.CodeBlock.of('%L !== undefined ? %T(%L) : undefined', from, toJson, from)
-                    : ts_poet_1.CodeBlock.of('%T(%L)', toJson, from);
+                    ? ts_poet_1.code `${from} !== undefined ? ${toJson}(${from}) : undefined`
+                    : ts_poet_1.code `${toJson}(${from})`;
             }
             else if (types_1.isTimestamp(field)) {
-                return ts_poet_1.CodeBlock.of('%L !== undefined ? %L.toISOString() : null', from, from);
+                return ts_poet_1.code `${from} !== undefined ? ${from}.toISOString() : null`;
             }
-            else if (types_1.isMapType(typeMap, messageDesc, field, options)) {
+            else if (types_1.isMapType(ctx, messageDesc, field)) {
                 // For map types, drill-in and then admittedly re-hard-code our per-value-type logic
                 const valueType = typeMap.get(field.typeName)[2].field[1];
                 if (types_1.isEnum(valueType)) {
-                    const toJson = types_1.getEnumMethod(typeMap, field.typeName, 'ToJSON');
-                    return ts_poet_1.CodeBlock.of('%T(%L)', toJson, from);
+                    const toJson = types_1.getEnumMethod(typeMap, valueType.typeName, 'ToJSON');
+                    return ts_poet_1.code `${toJson}(${from})`;
                 }
                 else if (types_1.isBytes(valueType)) {
-                    return ts_poet_1.CodeBlock.of('base64FromBytes(%L)', from);
+                    return ts_poet_1.code `${utils.base64FromBytes}(${from})`;
                 }
                 else if (types_1.isTimestamp(valueType)) {
-                    return ts_poet_1.CodeBlock.of('%L.toISOString()', from);
+                    return ts_poet_1.code `${from}.toISOString()`;
+                }
+                else if (types_1.isScalar(valueType)) {
+                    return ts_poet_1.code `${from}`;
                 }
                 else {
-                    return ts_poet_1.CodeBlock.of('%L', from);
+                    const type = types_1.basicTypeName(ctx, valueType);
+                    return ts_poet_1.code `${type}.toJSON(${from})`;
                 }
             }
-            else if (types_1.isMessage(field) && !types_1.isValueType(field) && !types_1.isMapType(typeMap, messageDesc, field, options)) {
-                return ts_poet_1.CodeBlock.of('%L ? %T.toJSON(%L) : %L', from, types_1.basicTypeName(typeMap, field, options, { keepValueType: true }), from, types_1.defaultValue(typeMap, field, options));
+            else if (types_1.isMessage(field) && !types_1.isValueType(ctx, field) && !types_1.isMapType(ctx, messageDesc, field)) {
+                const type = types_1.basicTypeName(ctx, field, { keepValueType: true });
+                return ts_poet_1.code `${from} ? ${type}.toJSON(${from}) : ${types_1.defaultValue(ctx, field)}`;
             }
             else if (types_1.isBytes(field)) {
-                return ts_poet_1.CodeBlock.of('%L !== undefined ? base64FromBytes(%L) : %L', from, from, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
+                if (types_1.isWithinOneOf(field)) {
+                    return ts_poet_1.code `${from} !== undefined ? ${utils.base64FromBytes}(${from}) : undefined`;
+                }
+                else {
+                    return ts_poet_1.code `${utils.base64FromBytes}(${from} !== undefined ? ${from} : ${types_1.defaultValue(ctx, field)})`;
+                }
             }
-            else if (types_1.isLong(field) && options.forceLong === LongOption.LONG) {
-                return ts_poet_1.CodeBlock.of('(%L || %L).toString()', from, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
+            else if (types_1.isLong(field) && options.forceLong === options_1.LongOption.LONG) {
+                const v = types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(ctx, field);
+                return ts_poet_1.code `(${from} || ${v}).toString()`;
             }
             else {
-                return ts_poet_1.CodeBlock.of('%L || %L', from, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
+                return ts_poet_1.code `${from}`;
             }
         };
-        if (types_1.isMapType(typeMap, messageDesc, field, options)) {
+        if (types_1.isMapType(ctx, messageDesc, field)) {
             // Maps might need their values transformed, i.e. bytes --> base64
-            func = func
-                .addStatement('obj.%L = {}', fieldName)
-                .beginControlFlow('if (message.%L)', fieldName)
-                .beginLambda('Object.entries(message.%L).forEach(([k, v]) =>', fieldName)
-                .addStatement('obj.%L[k] = %L', fieldName, readSnippet('v'))
-                .endLambda(')')
-                .endControlFlow();
+            chunks.push(ts_poet_1.code `
+        obj.${fieldName} = {};
+        if (message.${fieldName}) {
+          Object.entries(message.${fieldName}).forEach(([k, v]) => {
+            obj.${fieldName}[k] = ${readSnippet('v')};
+          });
+        }
+      `);
         }
         else if (types_1.isRepeated(field)) {
             // Arrays might need their elements transformed
-            func = func
-                .beginControlFlow('if (message.%L)', fieldName)
-                .addStatement('obj.%L = message.%L.map(e => %L)', fieldName, fieldName, readSnippet('e'))
-                .nextControlFlow('else')
-                .addStatement('obj.%L = []', fieldName)
-                .endControlFlow();
+            chunks.push(ts_poet_1.code `
+        if (message.${fieldName}) {
+          obj.${fieldName} = message.${fieldName}.map(e => ${readSnippet('e')});
+        } else {
+          obj.${fieldName} = [];
         }
-        else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
+      `);
+        }
+        else if (types_1.isWithinOneOfThatShouldBeUnion(options, field)) {
             // oneofs in a union are only output as `oneof name = ...`
-            let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
-            func = func.addStatement(`obj.%L = message.%L?.$case === '%L' && %L`, fieldName, oneofName, fieldName, readSnippet(`message.${oneofName}?.${fieldName}`));
+            const oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+            const v = readSnippet(`message.${oneofName}?.${fieldName}`);
+            chunks.push(ts_poet_1.code `message.${oneofName}?.$case === '${fieldName}' && (obj.${fieldName} = ${v});`);
         }
         else {
-            func = func.addStatement('obj.%L = %L', fieldName, readSnippet(`message.${fieldName}`));
+            const v = readSnippet(`message.${fieldName}`);
+            chunks.push(ts_poet_1.code `message.${fieldName} !== undefined && (obj.${fieldName} = ${v});`);
         }
     });
-    return func.addStatement('return obj');
+    chunks.push(ts_poet_1.code `return obj;`);
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
-function generateFromPartial(typeMap, fullName, messageDesc, options) {
+function generateFromPartial(ctx, fullName, messageDesc) {
+    const { options, utils, typeMap } = ctx;
+    const chunks = [];
     // create the basic function declaration
-    let func = ts_poet_1.FunctionSpec.create('fromPartial')
-        .addParameter(messageDesc.field.length > 0 ? 'object' : '_', `DeepPartial<${fullName}>`)
-        .returns(fullName);
-    // create the message
-    func = func.addStatement('const message = { ...base%L } as %L', fullName, fullName);
+    chunks.push(ts_poet_1.code `
+    fromPartial(${messageDesc.field.length > 0 ? 'object' : '_'}: ${utils.DeepPartial}<${fullName}>): ${fullName} {
+      const message = { ...base${fullName} } as ${fullName};
+  `);
     // initialize all lists
     messageDesc.field.filter(types_1.isRepeated).forEach((field) => {
-        const value = types_1.isMapType(typeMap, messageDesc, field, options) ? '{}' : '[]';
-        func = func.addStatement('message.%L = %L', case_1.maybeSnakeToCamel(field.name, options), value);
+        const value = types_1.isMapType(ctx, messageDesc, field) ? '{}' : '[]';
+        const name = case_1.maybeSnakeToCamel(field.name, options);
+        chunks.push(ts_poet_1.code `message.${name} = ${value};`);
     });
     // add a check for each incoming field
     messageDesc.field.forEach((field) => {
         const fieldName = case_1.maybeSnakeToCamel(field.name, options);
         const readSnippet = (from) => {
-            if (types_1.isEnum(field) || types_1.isPrimitive(field) || types_1.isTimestamp(field) || types_1.isValueType(field)) {
-                return ts_poet_1.CodeBlock.of(from);
+            if (types_1.isPrimitive(field) || types_1.isTimestamp(field) || types_1.isValueType(ctx, field)) {
+                return ts_poet_1.code `${from}`;
             }
             else if (types_1.isMessage(field)) {
-                if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
+                if (types_1.isRepeated(field) && types_1.isMapType(ctx, messageDesc, field)) {
                     const valueType = typeMap.get(field.typeName)[2].field[1];
                     if (types_1.isPrimitive(valueType)) {
                         if (types_1.isBytes(valueType)) {
-                            return ts_poet_1.CodeBlock.of('%L', from);
+                            return ts_poet_1.code `${from}`;
+                        }
+                        else if (types_1.isEnum(valueType)) {
+                            return ts_poet_1.code `${from} as number`;
                         }
                         else {
-                            const cstr = case_1.capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
-                            return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+                            const cstr = case_1.capitalize(types_1.basicTypeName(ctx, valueType).toCodeString());
+                            return ts_poet_1.code `${cstr}(${from})`;
                         }
                     }
                     else if (types_1.isTimestamp(valueType)) {
-                        return ts_poet_1.CodeBlock.of('%L', from);
+                        return ts_poet_1.code `${from}`;
                     }
                     else {
-                        return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
+                        const type = types_1.basicTypeName(ctx, valueType);
+                        return ts_poet_1.code `${type}.fromPartial(${from})`;
                     }
                 }
                 else {
-                    return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, field, options), from);
+                    const type = types_1.basicTypeName(ctx, field);
+                    return ts_poet_1.code `${type}.fromPartial(${from})`;
                 }
             }
             else {
@@ -830,62 +883,67 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
         };
         // and then use the snippet to handle repeated fields if necessary
         if (types_1.isRepeated(field)) {
-            func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
-            if (types_1.isMapType(typeMap, messageDesc, field, options)) {
-                func = func
-                    .beginLambda('Object.entries(object.%L).forEach(([key, value]) =>', fieldName)
-                    .beginControlFlow('if (value !== undefined)')
-                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value'))
-                    .endControlFlow()
-                    .endLambda(')');
+            chunks.push(ts_poet_1.code `if (object.${fieldName} !== undefined && object.${fieldName} !== null) {`);
+            if (types_1.isMapType(ctx, messageDesc, field)) {
+                const i = maybeCastToNumber(ctx, messageDesc, field, 'key');
+                chunks.push(ts_poet_1.code `
+          Object.entries(object.${fieldName}).forEach(([key, value]) => {
+            if (value !== undefined) {
+              message.${fieldName}[${i}] = ${readSnippet('value')};
+            }
+          });
+        `);
             }
             else {
-                func = func
-                    .beginControlFlow('for (const e of object.%L)', fieldName)
-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e'))
-                    .endControlFlow();
+                chunks.push(ts_poet_1.code `
+          for (const e of object.${fieldName}) {
+            message.${fieldName}.push(${readSnippet('e')});
+          }
+        `);
             }
         }
-        else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
+        else if (types_1.isWithinOneOfThatShouldBeUnion(options, field)) {
             let oneofName = case_1.maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
-            func = func
-                .beginControlFlow(`if (object.%L?.$case === '%L' && object.%L?.%L !== undefined && object.%L?.%L !== null)`, oneofName, fieldName, oneofName, fieldName, oneofName, fieldName)
-                .addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${oneofName}.${fieldName}`));
+            const v = readSnippet(`object.${oneofName}.${fieldName}`);
+            chunks.push(ts_poet_1.code `
+        if (
+          object.${oneofName}?.$case === '${fieldName}'
+          && object.${oneofName}?.${fieldName} !== undefined
+          && object.${oneofName}?.${fieldName} !== null
+        ) {
+          message.${oneofName} = { $case: '${fieldName}', ${fieldName}: ${v} };
+      `);
         }
         else {
-            func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
-            if (types_1.isLong(field) && options.forceLong === LongOption.LONG) {
-                func = func.addStatement(`message.%L = %L as %L`, fieldName, readSnippet(`object.${fieldName}`), types_1.basicTypeName(typeMap, field, options));
+            chunks.push(ts_poet_1.code `if (object.${fieldName} !== undefined && object.${fieldName} !== null) {`);
+            if ((types_1.isLong(field) || types_1.isLongValueType(field)) && options.forceLong === options_1.LongOption.LONG) {
+                const v = readSnippet(`object.${fieldName}`);
+                const type = types_1.basicTypeName(ctx, field);
+                chunks.push(ts_poet_1.code `message.${fieldName} = ${v} as ${type};`);
             }
             else {
-                func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`));
+                chunks.push(ts_poet_1.code `message.${fieldName} = ${readSnippet(`object.${fieldName}`)};`);
             }
         }
-        // set the default value (TODO Support bytes)
-        if (!types_1.isRepeated(field) &&
-            field.type !== FieldDescriptorProto.Type.TYPE_BYTES &&
-            options.oneof !== OneofOption.UNIONS) {
-            func = func.nextControlFlow('else');
-            func = func.addStatement(`message.%L = %L`, fieldName, types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(typeMap, field, options));
+        if (!types_1.isRepeated(field) && options.oneof !== options_1.OneofOption.UNIONS) {
+            chunks.push(ts_poet_1.code `} else {`);
+            const v = types_1.isWithinOneOf(field) ? 'undefined' : types_1.defaultValue(ctx, field);
+            chunks.push(ts_poet_1.code `message.${fieldName} = ${v}`);
         }
-        func = func.endControlFlow();
+        chunks.push(ts_poet_1.code `}`);
     });
     // and then wrap up the switch/while/return
-    return func.addStatement('return message');
+    chunks.push(ts_poet_1.code `return message;`);
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
-exports.contextTypeVar = ts_poet_1.TypeNames.typeVariable('Context', ts_poet_1.TypeNames.bound('DataLoaders'));
-function maybeCastToNumber(typeMap, messageDesc, field, variableName, options) {
-    const { keyType } = types_1.detectMapType(typeMap, messageDesc, field, options);
-    if (keyType === ts_poet_1.TypeNames.STRING) {
+exports.contextTypeVar = 'Context extends DataLoaders';
+function maybeCastToNumber(ctx, messageDesc, field, variableName) {
+    const { keyType } = types_1.detectMapType(ctx, messageDesc, field);
+    if (keyType.toCodeString() === 'string') {
         return variableName;
     }
     else {
         return `Number(${variableName})`;
     }
-}
-const builtInNames = ['Date'];
-/** Potentially suffixes `Message` to names to avoid conflicts, i.e. with `Date`. */
-function messageName(message) {
-    const { name } = message;
-    return builtInNames.includes(name) ? `${name}Message` : name;
 }

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toCamelCaseString = exports.maybeAddComment = exports.optionsFromParameter = exports.defaultOptions = exports.upperFirst = exports.lowerFirst = exports.singular = exports.fail = exports.readToBuffer = void 0;
-const main_1 = require("./main");
+exports.prefixDisableLinter = exports.maybeAddComment = exports.upperFirst = exports.lowerFirst = exports.singular = exports.fail = exports.readToBuffer = void 0;
+const ts_poet_1 = require("ts-poet");
 function readToBuffer(stream) {
     return new Promise((resolve) => {
         const ret = [];
@@ -35,138 +35,47 @@ function upperFirst(name) {
     return name.substring(0, 1).toUpperCase() + name.substring(1);
 }
 exports.upperFirst = upperFirst;
-function defaultOptions() {
-    return {
-        useContext: false,
-        snakeToCamel: true,
-        forceLong: main_1.LongOption.NUMBER,
-        useOptionals: false,
-        oneof: main_1.OneofOption.PROPERTIES,
-        lowerCaseServiceMethods: false,
-        outputEncodeMethods: true,
-        outputJsonMethods: true,
-        outputClientImpl: true,
-        returnObservable: false,
-        addGrpcMetadata: false,
-        addNestjsRestParameter: false,
-        nestJs: false,
-        env: main_1.EnvOption.BOTH,
-    };
-}
-exports.defaultOptions = defaultOptions;
-function optionsFromParameter(parameter) {
-    const options = defaultOptions();
-    if (parameter) {
-        if (parameter.includes('context=true')) {
-            options.useContext = true;
-        }
-        if (parameter.includes('snakeToCamel=false')) {
-            options.snakeToCamel = false;
-        }
-        if (parameter.includes('forceLong=true') || parameter.includes('forceLong=long')) {
-            options.forceLong = main_1.LongOption.LONG;
-        }
-        if (parameter.includes('forceLong=string')) {
-            options.forceLong = main_1.LongOption.STRING;
-        }
-        if (parameter.includes('useOptionals=true')) {
-            options.useOptionals = true;
-        }
-        if (parameter.includes('oneof=properties')) {
-            options.oneof = main_1.OneofOption.PROPERTIES;
-        }
-        if (parameter.includes('oneof=unions')) {
-            options.oneof = main_1.OneofOption.UNIONS;
-        }
-        if (parameter.includes('lowerCaseServiceMethods=true')) {
-            options.lowerCaseServiceMethods = true;
-        }
-        if (parameter.includes('outputEncodeMethods=false')) {
-            options.outputEncodeMethods = false;
-        }
-        if (parameter.includes('outputJsonMethods=false')) {
-            options.outputJsonMethods = false;
-        }
-        if (parameter.includes('outputClientImpl=false')) {
-            options.outputClientImpl = false;
-        }
-        if (parameter.includes('outputClientImpl=grpc-web')) {
-            options.outputClientImpl = 'grpc-web';
-        }
-        if (parameter.includes('nestJs=true')) {
-            options.nestJs = true;
-            options.lowerCaseServiceMethods = true;
-            options.outputEncodeMethods = false;
-            options.outputJsonMethods = false;
-            options.outputClientImpl = false;
-            if (parameter.includes('addGrpcMetadata=true')) {
-                options.addGrpcMetadata = true;
-            }
-            if (parameter.includes('addNestjsRestParameter=true')) {
-                options.addNestjsRestParameter = true;
-            }
-        }
-        if (parameter.includes('returnObservable=true')) {
-            options.returnObservable = true;
-        }
-        if (parameter.includes('env=node')) {
-            options.env = main_1.EnvOption.NODE;
-        }
-        if (parameter.includes('env=browser')) {
-            options.env = main_1.EnvOption.BROWSER;
-        }
-    }
-    return options;
-}
-exports.optionsFromParameter = optionsFromParameter;
-// addJavadoc will attempt to expand unescaped percent %, so we replace these within source comments.
-const PercentAll = /\%/g;
 // Since we don't know what form the comment originally took, it may contain closing block comments.
 const CloseComment = /\*\//g;
-/**
- * Removes potentially harmful characters from comments and calls the provided expression
- * @param desc {SourceDescription} original comment information
- * @param process {(comment: string) => void} called if a comment exists
- * @returns {string} scrubbed text
- */
-function maybeAddComment(desc, process) {
+/** Removes potentially harmful characters from comments and pushes it into chunks. */
+function maybeAddComment(desc, chunks, deprecated, prefix = '') {
+    let lines = [];
     if (desc.leadingComments || desc.trailingComments) {
-        return process((desc.leadingComments || desc.trailingComments || '').replace(PercentAll, '%%').replace(CloseComment, '* /'));
+        let content = (desc.leadingComments || desc.trailingComments || '').replace(CloseComment, '* /').trim();
+        // Detect /** ... */ comments
+        const isDoubleStar = content.startsWith('*');
+        if (isDoubleStar) {
+            content = content.substring(1).trim();
+        }
+        // Prefix things like the enum name.
+        if (prefix) {
+            content = prefix + content;
+        }
+        lines = content.split('\n').map((l) => l.replace(/^ /, '').replace(/\n/, ''));
+    }
+    // Deprecated comment should be added even if no other comment was added
+    if (deprecated) {
+        if (lines.length > 0) {
+            lines.push('');
+        }
+        lines.push('@deprecated');
+    }
+    let comment;
+    if (lines.length === 1) {
+        comment = ts_poet_1.code `/** ${lines[0]} */`;
+    }
+    else {
+        comment = ts_poet_1.code `/**\n * ${lines.join('\n * ')}\n */`;
+    }
+    if (lines.length > 0) {
+        chunks.push(ts_poet_1.code `\n\n${comment}\n\n`);
     }
 }
 exports.maybeAddComment = maybeAddComment;
-// util function to convert the input to string type
-function convertToString(input) {
-    if (input) {
-        if (typeof input === 'string') {
-            return input;
-        }
-        return String(input);
-    }
-    return '';
+// Comment block at the top of every source file, since these comments require specific
+// syntax incompatible with ts-poet, we will hard-code the string and prepend to the
+// generator output.
+function prefixDisableLinter(spec) {
+    return `/* eslint-disable */\n${spec}`;
 }
-// convert string to words
-function toWords(input) {
-    input = convertToString(input);
-    var regex = /[A-Z\xC0-\xD6\xD8-\xDE]?[a-z\xDF-\xF6\xF8-\xFF]+|[A-Z\xC0-\xD6\xD8-\xDE]+(?![a-z\xDF-\xF6\xF8-\xFF])|\d+/g;
-    return input.match(regex);
-}
-// convert the input array to camel case
-function toCamelCase(inputArray) {
-    let result = '';
-    for (let i = 0, len = inputArray.length; i < len; i++) {
-        let currentStr = inputArray[i];
-        let tempStr = currentStr.toLowerCase();
-        if (i != 0) {
-            // convert first letter to upper case (the word is in lowercase)
-            tempStr = tempStr.substr(0, 1).toUpperCase() + tempStr.substr(1);
-        }
-        result += tempStr;
-    }
-    return result;
-}
-function toCamelCaseString(input) {
-    let words = toWords(input);
-    return toCamelCase(words);
-}
-exports.toCamelCaseString = toCamelCaseString;
+exports.prefixDisableLinter = prefixDisableLinter;

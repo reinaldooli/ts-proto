@@ -3,40 +3,65 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.addGrpcWebMisc = exports.generateGrpcMethodDesc = exports.generateGrpcServiceDesc = exports.generateGrpcClientImpl = void 0;
 const types_1 = require("./types");
 const ts_poet_1 = require("ts-poet");
-const grpc = ts_poet_1.TypeNames.anyType('grpc@@improbable-eng/grpc-web');
+const grpc = ts_poet_1.imp('grpc@@improbable-eng/grpc-web');
+const UnaryMethodDefinition = ts_poet_1.imp('UnaryMethodDefinition@@improbable-eng/grpc-web/dist/typings/service');
+const share = ts_poet_1.imp('share@rxjs/operators');
+const take = ts_poet_1.imp('take@rxjs/operators');
+const BrowserHeaders = ts_poet_1.imp('BrowserHeaders@browser-headers');
+const Observable = ts_poet_1.imp('Observable@rxjs');
+const GrpcCode = ts_poet_1.imp('Code@@improbable-eng/grpc-web/dist/typings/Code');
 /** Generates a client that uses the `@improbable-web/grpc-web` library. */
-function generateGrpcClientImpl(typeMap, fileDesc, serviceDesc, options) {
+function generateGrpcClientImpl(ctx, fileDesc, serviceDesc) {
+    const chunks = [];
     // Define the FooServiceImpl class
-    let client = ts_poet_1.ClassSpec.create(`${serviceDesc.name}ClientImpl`)
-        .addModifiers(ts_poet_1.Modifier.EXPORT)
-        .addInterface(serviceDesc.name);
+    chunks.push(ts_poet_1.code `
+    export class ${serviceDesc.name}ClientImpl implements ${serviceDesc.name} {
+  `);
     // Create the constructor(rpc: Rpc)
-    client = client.addFunction(ts_poet_1.FunctionSpec.createConstructor().addParameter('rpc', 'Rpc').addStatement('this.rpc = rpc'));
-    client = client.addProperty('rpc', 'Rpc', { modifiers: [ts_poet_1.Modifier.PRIVATE, ts_poet_1.Modifier.READONLY] });
+    chunks.push(ts_poet_1.code `
+    private readonly rpc: Rpc;
+    
+    constructor(rpc: Rpc) {
+      this.rpc = rpc;
+    }
+  `);
     // Create a method for each FooService method
     for (const methodDesc of serviceDesc.method) {
-        client = client.addFunction(generateRpcMethod(options, typeMap, serviceDesc, methodDesc));
+        chunks.push(generateRpcMethod(ctx, serviceDesc, methodDesc));
     }
-    return client;
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { trim: false });
 }
 exports.generateGrpcClientImpl = generateGrpcClientImpl;
 /** Creates the RPC methods that client code actually calls. */
-function generateRpcMethod(options, typeMap, serviceDesc, methodDesc) {
-    let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-    let inputType = types_1.requestType(typeMap, methodDesc, options);
-    return requestFn
-        .addParameter('request', inputType)
-        .addParameter('metadata?', ts_poet_1.TypeNames.anyType('grpc.Metadata'))
-        .addStatement('return this.rpc.unary(%L, request, metadata)', methodDescName(serviceDesc, methodDesc))
-        .returns(types_1.responsePromise(typeMap, methodDesc, options));
+function generateRpcMethod(ctx, serviceDesc, methodDesc) {
+    const { options, utils } = ctx;
+    const inputType = types_1.requestType(ctx, methodDesc);
+    const partialInputType = ts_poet_1.code `${utils.DeepPartial}<${inputType}>`;
+    const returns = options.returnObservable || methodDesc.serverStreaming
+        ? types_1.responseObservable(ctx, methodDesc)
+        : types_1.responsePromise(ctx, methodDesc);
+    const method = methodDesc.serverStreaming ? 'invoke' : 'unary';
+    return ts_poet_1.code `
+    ${methodDesc.name}(
+      request: ${partialInputType},
+      metadata?: grpc.Metadata,
+    ): ${returns} {
+      return this.rpc.${method}(
+        ${methodDescName(serviceDesc, methodDesc)},
+        ${inputType}.fromPartial(request),
+        metadata,
+      );
+    }
+  `;
 }
 /** Creates the service descriptor that grpc-web needs at runtime. */
 function generateGrpcServiceDesc(fileDesc, serviceDesc) {
-    return ts_poet_1.CodeBlock.empty()
-        .add('const %LDesc = ', serviceDesc.name)
-        .beginHash()
-        .addHashEntry('serviceName', ts_poet_1.CodeBlock.empty().add('%S', `${fileDesc.package}.${serviceDesc.name}`))
-        .endHash();
+    return ts_poet_1.code `
+    export const ${serviceDesc.name}Desc = {
+      serviceName: "${fileDesc.package}.${serviceDesc.name}",
+    };
+  `;
 }
 exports.generateGrpcServiceDesc = generateGrpcServiceDesc;
 /**
@@ -46,113 +71,222 @@ exports.generateGrpcServiceDesc = generateGrpcServiceDesc;
  * what grpc-web's existing output is, but it works out; see comments in the method
  * implementation.
  */
-function generateGrpcMethodDesc(options, typeMap, serviceDesc, methodDesc) {
-    let inputType = types_1.requestType(typeMap, methodDesc, options);
-    let outputType = types_1.responseType(typeMap, methodDesc, options);
-    return (ts_poet_1.CodeBlock.empty()
-        .add('const %L: UnaryMethodDefinitionish = ', methodDescName(serviceDesc, methodDesc))
-        .beginHash()
-        .addHashEntry('methodName', ts_poet_1.CodeBlock.empty().add('%S', methodDesc.name))
-        .addHashEntry('service', `${serviceDesc.name}Desc`)
-        .addHashEntry('requestStream', 'false')
-        .addHashEntry('responseStream', 'false')
-        // grpc-web expects this to be a class, but the ts-proto messages are just interfaces.
-        //
-        // That said, grpc-web's runtime doesn't really use this (at least so far for what ts-proto
-        // does), so we could potentially set it to `null!`.
-        //
-        // However, grpc-web does want messages to have a `.serializeBinary()` method, which again
-        // due to the class-less nature of ts-proto's messages, we don't have. So we appropriate
-        // this `requestType` as a placeholder for our GrpcWebImpl to Object.assign-in this request
-        // message's `serializeBinary` method into the data before handing it off to grpc-web.
-        //
-        // This makes our data look enough like an object/class that grpc-web works just fine.
-        .addHashEntry('requestType', ts_poet_1.CodeBlock.empty()
-        .beginHash()
-        .addHashEntry('serializeBinary', ts_poet_1.FunctionSpec.create('serializeBinary').addStatement('return %T.encode(this).finish()', inputType))
-        .endHash()
-        .add(' as any'))
-        // grpc-web also expects this to be a class, but with a static `deserializeBinary` method to
-        // create new instances of messages. We again don't have an actual class constructor/symbol
-        // to pass to it, but we can make up a lambda that has a `deserializeBinary` that does what
-        // we want/what grpc-web's runtime needs.
-        .addHashEntry('responseType', ts_poet_1.CodeBlock.empty()
-        .beginHash()
-        .addHashEntry('deserializeBinary', ts_poet_1.FunctionSpec.create('deserializeBinary')
-        .addParameter('data', 'Uint8Array')
-        .addStatement('return { ...%T.decode(data), toObject() { return this; } }', outputType))
-        .endHash()
-        .add(' as any'))
-        .endHash());
+function generateGrpcMethodDesc(ctx, serviceDesc, methodDesc) {
+    const inputType = types_1.requestType(ctx, methodDesc);
+    const outputType = types_1.responseType(ctx, methodDesc);
+    // grpc-web expects this to be a class, but the ts-proto messages are just interfaces.
+    //
+    // That said, grpc-web's runtime doesn't really use this (at least so far for what ts-proto
+    // does), so we could potentially set it to `null!`.
+    //
+    // However, grpc-web does want messages to have a `.serializeBinary()` method, which again
+    // due to the class-less nature of ts-proto's messages, we don't have. So we appropriate
+    // this `requestType` as a placeholder for our GrpcWebImpl to Object.assign-in this request
+    // message's `serializeBinary` method into the data before handing it off to grpc-web.
+    //
+    // This makes our data look enough like an object/class that grpc-web works just fine.
+    const requestFn = ts_poet_1.code `{
+    serializeBinary() {
+      return ${inputType}.encode(this).finish();
+    },
+  }`;
+    // grpc-web also expects this to be a class, but with a static `deserializeBinary` method to
+    // create new instances of messages. We again don't have an actual class constructor/symbol
+    // to pass to it, but we can make up a lambda that has a `deserializeBinary` that does what
+    // we want/what grpc-web's runtime needs.
+    const responseFn = ts_poet_1.code `{
+    deserializeBinary(data: Uint8Array) {
+      return { ...${outputType}.decode(data), toObject() { return this; } };
+    }
+  }`;
+    return ts_poet_1.code `
+    export const ${methodDescName(serviceDesc, methodDesc)}: UnaryMethodDefinitionish = {
+      methodName: "${methodDesc.name}",
+      service: ${serviceDesc.name}Desc,
+      requestStream: false,
+      responseStream: ${methodDesc.serverStreaming ? 'true' : 'false'},
+      requestType: ${requestFn} as any,
+      responseType: ${responseFn} as any,
+    };
+  `;
 }
 exports.generateGrpcMethodDesc = generateGrpcMethodDesc;
 function methodDescName(serviceDesc, methodDesc) {
     return `${serviceDesc.name}${methodDesc.name}Desc`;
 }
 /** Adds misc top-level definitions for grpc-web functionality. */
-function addGrpcWebMisc(options, _file) {
-    let file = _file;
-    file = file.addCode(ts_poet_1.CodeBlock.empty()
-        .addStatement('import UnaryMethodDefinition = grpc.UnaryMethodDefinition')
-        .addStatement('type UnaryMethodDefinitionish = UnaryMethodDefinition<any, any>'));
-    file = file.addInterface(generateGrpcWebRpcType());
-    file = file.addClass(generateGrpcWebImpl());
-    return file;
+function addGrpcWebMisc(ctx, hasStreamingMethods) {
+    const { options } = ctx;
+    const chunks = [];
+    chunks.push(ts_poet_1.code `
+    interface UnaryMethodDefinitionishR extends ${UnaryMethodDefinition}<any, any> { requestStream: any; responseStream: any; }
+  `);
+    chunks.push(ts_poet_1.code `type UnaryMethodDefinitionish = UnaryMethodDefinitionishR;`);
+    chunks.push(generateGrpcWebRpcType(options.returnObservable, hasStreamingMethods));
+    chunks.push(generateGrpcWebImpl(options.returnObservable, hasStreamingMethods));
+    return ts_poet_1.joinCode(chunks, { on: '\n\n' });
 }
 exports.addGrpcWebMisc = addGrpcWebMisc;
-/** Makes an `Rpc` interface to decouple from the low-level grpc-web `grpc.unary`/etc. methods. */
-function generateGrpcWebRpcType() {
-    let rpc = ts_poet_1.InterfaceSpec.create('Rpc');
-    let fn = ts_poet_1.FunctionSpec.create('unary');
-    const t = ts_poet_1.TypeNames.typeVariable('T', ts_poet_1.TypeNames.bound('UnaryMethodDefinitionish'));
-    fn = fn
-        .addTypeVariable(t)
-        .addParameter('methodDesc', t)
-        .addParameter('request', ts_poet_1.TypeNames.ANY)
-        .addParameter('metadata', ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.anyType('grpc.Metadata'), ts_poet_1.TypeNames.UNDEFINED))
-        .returns(ts_poet_1.TypeNames.PROMISE.param(ts_poet_1.TypeNames.ANY));
-    rpc = rpc.addFunction(fn);
-    return rpc;
+/** Makes an `Rpc` interface to decouple from the low-level grpc-web `grpc.invoke and grpc.unary`/etc. methods. */
+function generateGrpcWebRpcType(returnObservable, hasStreamingMethods) {
+    const chunks = [];
+    chunks.push(ts_poet_1.code `interface Rpc {`);
+    const wrapper = returnObservable ? Observable : 'Promise';
+    chunks.push(ts_poet_1.code `
+    unary<T extends UnaryMethodDefinitionish>(
+      methodDesc: T,
+      request: any,
+      metadata: grpc.Metadata | undefined,
+    ): ${wrapper}<any>;
+  `);
+    if (hasStreamingMethods) {
+        chunks.push(ts_poet_1.code `
+      invoke<T extends UnaryMethodDefinitionish>(
+        methodDesc: T,
+        request: any,
+        metadata: grpc.Metadata | undefined,
+      ): ${Observable}<any>;
+    `);
+    }
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
 /** Implements the `Rpc` interface by making calls using the `grpc.unary` method. */
-function generateGrpcWebImpl() {
-    const optionsParam = ts_poet_1.TypeNames.anonymousType(['transport?', ts_poet_1.TypeNames.anyType('grpc.TransportFactory')], ['debug?', ts_poet_1.TypeNames.BOOLEAN]);
-    const t = ts_poet_1.TypeNames.typeVariable('T', ts_poet_1.TypeNames.bound('UnaryMethodDefinitionish'));
-    return ts_poet_1.ClassSpec.create('GrpcWebImpl')
-        .addModifiers(ts_poet_1.Modifier.EXPORT)
-        .addProperty(ts_poet_1.PropertySpec.create('host', ts_poet_1.TypeNames.STRING).addModifiers(ts_poet_1.Modifier.PRIVATE))
-        .addProperty(ts_poet_1.PropertySpec.create('options', optionsParam).addModifiers(ts_poet_1.Modifier.PRIVATE))
-        .addInterface('Rpc')
-        .addFunction(ts_poet_1.FunctionSpec.createConstructor()
-        .addParameter('host', 'string')
-        .addParameter('options', optionsParam)
-        .addStatement('this.host = host')
-        .addStatement('this.options = options'))
-        .addFunction(ts_poet_1.FunctionSpec.create('unary')
-        .addTypeVariable(t)
-        .addParameter('methodDesc', t)
-        .addParameter('_request', ts_poet_1.TypeNames.ANY)
-        .addParameter('metadata', ts_poet_1.TypeNames.unionType(ts_poet_1.TypeNames.anyType('grpc.Metadata'), ts_poet_1.TypeNames.UNDEFINED))
-        .returns(ts_poet_1.TypeNames.PROMISE.param(ts_poet_1.TypeNames.ANY))
-        .addCodeBlock(ts_poet_1.CodeBlock.empty().add(`const request = { ..._request, ...methodDesc.requestType };
-return new Promise((resolve, reject) => {
-  %T.unary(methodDesc, {
-    request,
-    host: this.host,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (response.status === grpc.Code.OK) {
-        resolve(response.message);
-      } else {
-        const err = new Error(response.statusMessage) as any;
-        err.code = response.status;
-        err.metadata = response.trailers;
-        reject(err);
+function generateGrpcWebImpl(returnObservable, hasStreamingMethods) {
+    const options = ts_poet_1.code `
+    {
+      transport?: grpc.TransportFactory,
+      ${hasStreamingMethods ? 'streamingTransport?: grpc.TransportFactory,' : ``}
+      debug?: boolean,
+      metadata?: grpc.Metadata,
+    }
+  `;
+    const chunks = [];
+    chunks.push(ts_poet_1.code `
+    export class GrpcWebImpl {
+      private host: string;
+      private options: ${options};
+      
+      constructor(host: string, options: ${options}) {
+        this.host = host;
+        this.options = options;
       }
-    },
-  });
-});
-`, grpc)));
+  `);
+    if (returnObservable) {
+        chunks.push(createObservableUnaryMethod());
+    }
+    else {
+        chunks.push(createPromiseUnaryMethod());
+    }
+    if (hasStreamingMethods) {
+        chunks.push(createInvokeMethod());
+    }
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { trim: false });
+}
+function createPromiseUnaryMethod() {
+    return ts_poet_1.code `
+    unary<T extends UnaryMethodDefinitionish>(
+      methodDesc: T,
+      _request: any,
+      metadata: grpc.Metadata | undefined
+    ): Promise<any> {
+      const request = { ..._request, ...methodDesc.requestType };
+      const maybeCombinedMetadata =
+        metadata && this.options.metadata
+          ? new ${BrowserHeaders}({ ...this.options?.metadata.headersMap, ...metadata?.headersMap })
+          : metadata || this.options.metadata;
+      return new Promise((resolve, reject) => {
+      ${grpc}.unary(methodDesc, {
+          request,
+          host: this.host,
+          metadata: maybeCombinedMetadata,
+          transport: this.options.transport,
+          debug: this.options.debug,
+          onEnd: function (response) {
+            if (response.status === grpc.Code.OK) {
+              resolve(response.message);
+            } else {
+              const err = new Error(response.statusMessage) as any;
+              err.code = response.status;
+              err.metadata = response.trailers;
+              reject(err);
+            }
+          },
+        });
+      });
+    }
+  `;
+}
+function createObservableUnaryMethod() {
+    return ts_poet_1.code `
+    unary<T extends UnaryMethodDefinitionish>(
+      methodDesc: T,
+      _request: any,
+      metadata: grpc.Metadata | undefined
+    ): ${Observable}<any> {
+      const request = { ..._request, ...methodDesc.requestType };
+      const maybeCombinedMetadata =
+        metadata && this.options.metadata
+          ? new ${BrowserHeaders}({ ...this.options?.metadata.headersMap, ...metadata?.headersMap })
+          : metadata || this.options.metadata;
+      return new Observable(observer => {
+        ${grpc}.unary(methodDesc, {
+          request,
+          host: this.host,
+          metadata: maybeCombinedMetadata,
+          transport: this.options.transport,
+          debug: this.options.debug,
+          onEnd: (next) => {
+            if (next.status !== 0) {
+              observer.error({ code: next.status, message: next.statusMessage });
+            } else {
+              observer.next(next.message as any);
+              observer.complete();
+            }
+          },
+        });
+      }).pipe(${take}(1));
+    } 
+  `;
+}
+function createInvokeMethod() {
+    return ts_poet_1.code `
+    invoke<T extends UnaryMethodDefinitionish>(
+      methodDesc: T,
+      _request: any,
+      metadata: grpc.Metadata | undefined
+    ): ${Observable}<any> {
+      // Status Response Codes (https://developers.google.com/maps-booking/reference/grpc-api/status_codes)
+      const upStreamCodes = [2, 4, 8, 9, 10, 13, 14, 15]; 
+      const DEFAULT_TIMEOUT_TIME: number = 3_000;
+      const request = { ..._request, ...methodDesc.requestType };
+      const maybeCombinedMetadata =
+      metadata && this.options.metadata
+        ? new ${BrowserHeaders}({ ...this.options?.metadata.headersMap, ...metadata?.headersMap })
+        : metadata || this.options.metadata;
+      return new Observable(observer => {
+        const upStream = (() => {
+          ${grpc}.invoke(methodDesc, {
+            host: this.host,
+            request,
+            transport: this.options.streamingTransport || this.options.transport,
+            metadata: maybeCombinedMetadata,
+            debug: this.options.debug,
+            onMessage: (next) => observer.next(next),
+            onEnd: (code: ${GrpcCode}, message: string) => {
+              if (code === 0) {
+                observer.complete();
+              } else if (upStreamCodes.includes(code)) {
+                setTimeout(upStream, DEFAULT_TIMEOUT_TIME);
+              } else {
+                observer.error(new Error(\`Error \${code} \${message}\`));
+              }
+            },
+          });
+        });
+        upStream();
+      }).pipe(${share}());
+    }
+  `;
 }

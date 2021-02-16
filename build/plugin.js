@@ -1,42 +1,36 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const plugin_1 = require("ts-proto-descriptors/google/protobuf/compiler/plugin");
 const util_1 = require("util");
 const utils_1 = require("./utils");
-const pbjs_1 = require("../build/pbjs");
 const main_1 = require("./main");
 const types_1 = require("./types");
-var CodeGeneratorRequest = pbjs_1.google.protobuf.compiler.CodeGeneratorRequest;
-var CodeGeneratorResponse = pbjs_1.google.protobuf.compiler.CodeGeneratorResponse;
+const options_1 = require("./options");
 // this would be the plugin called by the protoc compiler
 async function main() {
     const stdin = await utils_1.readToBuffer(process.stdin);
     // const json = JSON.parse(stdin.toString());
     // const request = CodeGeneratorRequest.fromObject(json);
-    const request = CodeGeneratorRequest.decode(stdin);
-    const typeMap = types_1.createTypeMap(request, utils_1.optionsFromParameter(request.parameter));
-    const files = request.protoFile.map((file) => {
-        const spec = main_1.generateFile(typeMap, file, request.parameter);
-        const filenames = spec.path.split('/');
-        let filename = '';
-        if (filenames[0] === 'google') {
-            filename = spec.path;
-        }
-        else {
-            filename = filenames[filenames.length - 1];
-        }
-        return new CodeGeneratorResponse.File({
-            name: spec.path,
-            content: prefixDisableLinter(spec),
-        });
+    const request = plugin_1.CodeGeneratorRequest.decode(stdin);
+    const options = options_1.optionsFromParameter(request.parameter);
+    const typeMap = types_1.createTypeMap(request, options);
+    const utils = main_1.makeUtils(options);
+    const ctx = { typeMap, options, utils };
+    const files = await Promise.all(request.protoFile.map(async (file) => {
+        const [path, code] = main_1.generateFile(ctx, file);
+        const spec = await code.toStringWithImports({ ...options_1.getTsPoetOpts(options), path });
+        return { name: path, content: utils_1.prefixDisableLinter(spec) };
+    }));
+    const response = plugin_1.CodeGeneratorResponse.fromPartial({
+        file: files,
+        supportedFeatures: plugin_1.CodeGeneratorResponse_Feature.FEATURE_PROTO3_OPTIONAL,
     });
-    const response = new CodeGeneratorResponse({ file: files });
-    const buffer = CodeGeneratorResponse.encode(response).finish();
+    const buffer = plugin_1.CodeGeneratorResponse.encode(response).finish();
     const write = util_1.promisify(process.stdout.write).bind(process.stdout);
     await write(Buffer.from(buffer));
 }
 main()
     .then(() => {
-    process.stderr.write('GEN DONE');
     process.exit(0);
 })
     .catch((e) => {
@@ -45,10 +39,3 @@ main()
     process.stderr.write(e.stack);
     process.exit(1);
 });
-// Comment block at the top of every source file, since these comments require specific
-// syntax incompatible with ts-poet, we will hard-code the string and prepend to the
-// generator output.
-function prefixDisableLinter(spec) {
-    return `/* eslint-disable */
-${spec}`;
-}

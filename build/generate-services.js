@@ -1,13 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateDataLoadersType = exports.generateRpcType = exports.generateServiceClientImpl = exports.generateService = void 0;
-const types_1 = require("./types");
+exports.generateDataLoaderOptionsType = exports.generateDataLoadersType = exports.generateRpcType = exports.generateServiceClientImpl = exports.generateService = void 0;
 const ts_poet_1 = require("ts-poet");
+const types_1 = require("./types");
 const utils_1 = require("./utils");
 const sourceInfo_1 = require("./sourceInfo");
 const case_1 = require("./case");
 const main_1 = require("./main");
-const dataloader = ts_poet_1.TypeNames.anyType('DataLoader*dataloader');
+const hash = ts_poet_1.imp('hash*object-hash');
+const dataloader = ts_poet_1.imp('DataLoader*dataloader');
+const Reader = ts_poet_1.imp('Reader@protobufjs/minimal');
 /**
  * Generates an interface for `serviceDesc`.
  *
@@ -18,151 +20,187 @@ const dataloader = ts_poet_1.TypeNames.anyType('DataLoader*dataloader');
  * Other RPC frameworks (i.e. NestJS) that need different client-side
  * vs. server-side code/interfaces are handled separately.
  */
-function generateService(typeMap, fileDesc, sourceInfo, serviceDesc, options) {
-    let service = ts_poet_1.InterfaceSpec.create(serviceDesc.name).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        service = service.addTypeVariable(main_1.contextTypeVar);
-    }
-    utils_1.maybeAddComment(sourceInfo, (text) => (service = service.addJavadoc(text)));
+function generateService(ctx, fileDesc, sourceInfo, serviceDesc) {
+    var _a;
+    const { options, utils } = ctx;
+    const chunks = [];
+    utils_1.maybeAddComment(sourceInfo, chunks, (_a = serviceDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
+    const maybeTypeVar = options.useContext ? `<${main_1.contextTypeVar}>` : '';
+    chunks.push(ts_poet_1.code `export interface ${serviceDesc.name}${maybeTypeVar} {`);
     serviceDesc.method.forEach((methodDesc, index) => {
-        if (options.lowerCaseServiceMethods) {
-            methodDesc.name = case_1.camelCase(methodDesc.name);
-        }
-        let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
+        var _a;
+        const name = options.lowerCaseServiceMethods ? case_1.camelCase(methodDesc.name) : methodDesc.name;
         const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
-        utils_1.maybeAddComment(info, (text) => (requestFn = requestFn.addJavadoc(text)));
-        requestFn = requestFn.addParameter('request', types_1.requestType(typeMap, methodDesc, options));
+        utils_1.maybeAddComment(info, chunks, (_a = methodDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
+        const params = [];
         if (options.useContext) {
-            requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+            params.push(ts_poet_1.code `ctx: Context`);
         }
+        let inputType = types_1.requestType(ctx, methodDesc);
+        // the grpc-web clients auto-`fromPartial` the input before handing off to grpc-web's
+        // serde runtime, so it's okay to accept partial results from the client
+        if (options.outputClientImpl === 'grpc-web') {
+            inputType = ts_poet_1.code `${utils.DeepPartial}<${inputType}>`;
+        }
+        params.push(ts_poet_1.code `request: ${inputType}`);
         // Use metadata as last argument for interface only configuration
         if (options.outputClientImpl === 'grpc-web') {
-            requestFn = requestFn.addParameter('metadata?', 'grpc.Metadata');
+            params.push(ts_poet_1.code `metadata?: grpc.Metadata`);
         }
         else if (options.addGrpcMetadata) {
-            requestFn = requestFn.addParameter(options.addNestjsRestParameter ? 'metadata' : 'metadata?', 'Metadata@grpc');
+            const q = options.addNestjsRestParameter ? '' : '?';
+            params.push(ts_poet_1.code `metadata${q}: Metadata@grpc`);
         }
         if (options.addNestjsRestParameter) {
-            requestFn = requestFn.addParameter('...rest', 'any');
+            params.push(ts_poet_1.code `...rest: any`);
         }
         // Return observable for interface only configuration, passing returnObservable=true and methodDesc.serverStreaming=true
+        let returnType;
         if (options.returnObservable || methodDesc.serverStreaming) {
-            requestFn = requestFn.returns(types_1.responseObservable(typeMap, methodDesc, options));
+            returnType = types_1.responseObservable(ctx, methodDesc);
         }
         else {
-            requestFn = requestFn.returns(types_1.responsePromise(typeMap, methodDesc, options));
+            returnType = types_1.responsePromise(ctx, methodDesc);
         }
-        service = service.addFunction(requestFn);
+        chunks.push(ts_poet_1.code `${name}(${ts_poet_1.joinCode(params, { on: ',' })}): ${returnType};`);
+        // If this is a batch method, auto-generate the singular version of it
         if (options.useContext) {
-            const batchMethod = types_1.detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
+            const batchMethod = types_1.detectBatchMethod(ctx, fileDesc, serviceDesc, methodDesc);
             if (batchMethod) {
                 const name = batchMethod.methodDesc.name.replace('Batch', 'Get');
-                let batchFn = ts_poet_1.FunctionSpec.create(name);
-                if (options.useContext) {
-                    batchFn = batchFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
-                }
-                batchFn = batchFn.addParameter(utils_1.singular(batchMethod.inputFieldName), batchMethod.inputType);
-                batchFn = batchFn.returns(ts_poet_1.TypeNames.PROMISE.param(batchMethod.outputType));
-                service = service.addFunction(batchFn);
+                chunks.push(ts_poet_1.code `${name}(
+          ctx: Context,
+          ${utils_1.singular(batchMethod.inputFieldName)}: ${batchMethod.inputType},
+        ): Promise<${batchMethod.outputType}>;`);
             }
         }
     });
-    return service;
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.joinCode(chunks, { on: '\n' });
 }
 exports.generateService = generateService;
-function generateRegularRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc) {
-    let requestFn = ts_poet_1.FunctionSpec.create(methodDesc.name);
-    if (options.useContext) {
-        requestFn = requestFn.addParameter('ctx', ts_poet_1.TypeNames.typeVariable('Context'));
+function generateRegularRpcMethod(ctx, fileDesc, serviceDesc, methodDesc) {
+    const { options } = ctx;
+    const Reader = ts_poet_1.imp('Reader@protobufjs/minimal');
+    const inputType = types_1.requestType(ctx, methodDesc);
+    const outputType = types_1.responseType(ctx, methodDesc);
+    const params = [...(options.useContext ? [ts_poet_1.code `ctx: Context`] : []), ts_poet_1.code `request: ${inputType}`];
+    const maybeCtx = options.useContext ? 'ctx,' : '';
+    return ts_poet_1.code `
+    ${methodDesc.name}(
+      ${ts_poet_1.joinCode(params, { on: ',' })}
+    ): ${types_1.responsePromise(ctx, methodDesc)} {
+      const data = ${inputType}.encode(request).finish();
+      const promise = this.rpc.request(
+        ${maybeCtx}
+        "${fileDesc.package}.${serviceDesc.name}",
+        "${methodDesc.name}",
+        data
+      );
+      return promise.then(data => ${outputType}.decode(new ${Reader}(data)));
     }
-    let inputType = types_1.requestType(typeMap, methodDesc, options);
-    return requestFn
-        .addParameter('request', inputType)
-        .addStatement('const data = %L.encode(request).finish()', inputType)
-        .addStatement('const promise = this.rpc.request(%L"%L.%L", %S, %L)', options.useContext ? 'ctx, ' : '', // sneak ctx in as the 1st parameter to our rpc call
-    fileDesc.package, serviceDesc.name, methodDesc.name, 'data')
-        .addStatement('return promise.then(data => %L.decode(new %T(data)))', types_1.responseType(typeMap, methodDesc, options), 'Reader@protobufjs/minimal')
-        .returns(types_1.responsePromise(typeMap, methodDesc, options));
+  `;
 }
-function generateServiceClientImpl(typeMap, fileDesc, serviceDesc, options) {
+function generateServiceClientImpl(ctx, fileDesc, serviceDesc) {
+    const { options } = ctx;
+    const chunks = [];
     // Define the FooServiceImpl class
-    let client = ts_poet_1.ClassSpec.create(`${serviceDesc.name}ClientImpl`).addModifiers(ts_poet_1.Modifier.EXPORT);
-    if (options.useContext) {
-        client = client.addTypeVariable(main_1.contextTypeVar);
-        client = client.addInterface(`${serviceDesc.name}<Context>`);
-    }
-    else {
-        client = client.addInterface(serviceDesc.name);
-    }
+    const { name } = serviceDesc;
+    const i = options.useContext ? `${name}<Context>` : name;
+    const t = options.useContext ? `<${main_1.contextTypeVar}>` : '';
+    chunks.push(ts_poet_1.code `export class ${name}ClientImpl${t} implements ${i} {`);
     // Create the constructor(rpc: Rpc)
     const rpcType = options.useContext ? 'Rpc<Context>' : 'Rpc';
-    client = client.addFunction(ts_poet_1.FunctionSpec.createConstructor().addParameter('rpc', rpcType).addStatement('this.rpc = rpc'));
-    client = client.addProperty('rpc', rpcType, { modifiers: [ts_poet_1.Modifier.PRIVATE, ts_poet_1.Modifier.READONLY] });
+    chunks.push(ts_poet_1.code `private readonly rpc: ${rpcType};`);
+    chunks.push(ts_poet_1.code `constructor(rpc: ${rpcType}) { this.rpc = rpc; }`);
     // Create a method for each FooService method
     for (const methodDesc of serviceDesc.method) {
         // See if this this fuzzy matches to a batchable method
         if (options.useContext) {
-            const batchMethod = types_1.detectBatchMethod(typeMap, fileDesc, serviceDesc, methodDesc, options);
+            const batchMethod = types_1.detectBatchMethod(ctx, fileDesc, serviceDesc, methodDesc);
             if (batchMethod) {
-                client = client.addFunction(generateBatchingRpcMethod(typeMap, batchMethod));
+                chunks.push(generateBatchingRpcMethod(ctx, batchMethod));
             }
         }
         if (options.useContext && methodDesc.name.match(/^Get[A-Z]/)) {
-            client = client.addFunction(generateCachingRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc));
+            chunks.push(generateCachingRpcMethod(ctx, fileDesc, serviceDesc, methodDesc));
         }
         else {
-            client = client.addFunction(generateRegularRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc));
+            chunks.push(generateRegularRpcMethod(ctx, fileDesc, serviceDesc, methodDesc));
         }
     }
-    return client;
+    chunks.push(ts_poet_1.code `}`);
+    return ts_poet_1.code `${chunks}`;
 }
 exports.generateServiceClientImpl = generateServiceClientImpl;
 /** We've found a BatchXxx method, create a synthetic GetXxx method that calls it. */
-function generateBatchingRpcMethod(typeMap, batchMethod) {
+function generateBatchingRpcMethod(ctx, batchMethod) {
     const { methodDesc, singleMethodName, inputFieldName, inputType, outputFieldName, outputType, mapType, uniqueIdentifier, } = batchMethod;
     // Create the `(keys) => ...` lambda we'll pass to the DataLoader constructor
-    let lambda = ts_poet_1.CodeBlock.lambda(inputFieldName) // e.g. keys
-        .addStatement('const request = { %L }', inputFieldName);
+    const lambda = [];
+    lambda.push(ts_poet_1.code `
+    (${inputFieldName}) => {
+      const request = { ${inputFieldName} };
+  `);
     if (mapType) {
         // If the return type is a map, lookup each key in the result
-        lambda = lambda
-            .beginLambda('return this.%L(ctx, request).then(res =>', methodDesc.name)
-            .addStatement('return %L.map(key => res.%L[key])', inputFieldName, outputFieldName)
-            .endLambda(')');
+        lambda.push(ts_poet_1.code `
+      return this.${methodDesc.name}(ctx, request).then(res => {
+        return ${inputFieldName}.map(key => res.${outputFieldName}[key])
+      });
+    `);
     }
     else {
         // Otherwise assume they come back in order
-        lambda = lambda.addStatement('return this.%L(ctx, request).then(res => res.%L)', methodDesc.name, outputFieldName);
+        lambda.push(ts_poet_1.code `
+      return this.${methodDesc.name}(ctx, request).then(res => res.${outputFieldName})
+    `);
     }
-    return ts_poet_1.FunctionSpec.create(singleMethodName)
-        .addParameter('ctx', 'Context')
-        .addParameter(utils_1.singular(inputFieldName), inputType)
-        .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
-        .addCode('return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n', dataloader, inputType, outputType, lambda, ts_poet_1.TypeNames.anyType('hash*object-hash'))
-        .addCode('%<});\n')
-        .addStatement('return dl.load(%L)', utils_1.singular(inputFieldName))
-        .returns(ts_poet_1.TypeNames.PROMISE.param(outputType));
+    lambda.push(ts_poet_1.code `}`);
+    return ts_poet_1.code `
+    ${singleMethodName}(
+      ctx: Context,
+      ${utils_1.singular(inputFieldName)}: ${inputType}
+    ): Promise<${outputType}> {
+      const dl = ctx.getDataLoader("${uniqueIdentifier}", () => {
+        return new ${dataloader}<${inputType}, ${outputType}>(
+          ${ts_poet_1.joinCode(lambda)},
+          { cacheKeyFn: ${hash}, ...ctx.rpcDataLoaderOptions }
+        );
+      });
+      return dl.load(${utils_1.singular(inputFieldName)});
+    }
+  `;
 }
 /** We're not going to batch, but use DataLoader for per-request caching. */
-function generateCachingRpcMethod(options, typeMap, fileDesc, serviceDesc, methodDesc) {
-    const inputType = types_1.requestType(typeMap, methodDesc, options);
-    const outputType = types_1.responseType(typeMap, methodDesc, options);
-    let lambda = ts_poet_1.CodeBlock.lambda('requests')
-        .beginLambda('const responses = requests.map(async request =>')
-        .addStatement('const data = %L.encode(request).finish()', inputType)
-        .addStatement('const response = await this.rpc.request(ctx, "%L.%L", %S, %L)', fileDesc.package, serviceDesc.name, methodDesc.name, 'data')
-        .addStatement('return %L.decode(new %T(response))', outputType, 'Reader@protobufjs/minimal')
-        .endLambda(')')
-        .addStatement('return Promise.all(responses)');
+function generateCachingRpcMethod(ctx, fileDesc, serviceDesc, methodDesc) {
+    const inputType = types_1.requestType(ctx, methodDesc);
+    const outputType = types_1.responseType(ctx, methodDesc);
     const uniqueIdentifier = `${fileDesc.package}.${serviceDesc.name}.${methodDesc.name}`;
-    return ts_poet_1.FunctionSpec.create(methodDesc.name)
-        .addParameter('ctx', 'Context')
-        .addParameter('request', inputType)
-        .addCode('const dl = ctx.getDataLoader(%S, () => {%>\n', uniqueIdentifier)
-        .addCode('return new %T<%T, %T>(%L, { cacheKeyFn: %T });\n', dataloader, inputType, outputType, lambda, ts_poet_1.TypeNames.anyType('hash*object-hash'))
-        .addCode('%<});\n')
-        .addStatement('return dl.load(request)')
-        .returns(ts_poet_1.TypeNames.PROMISE.param(outputType));
+    const lambda = ts_poet_1.code `
+    (requests) => {
+      const responses = requests.map(async request => {
+        const data = ${inputType}.encode(request).finish()
+        const response = await this.rpc.request(ctx, "${fileDesc.package}.${serviceDesc.name}", "${methodDesc.name}", data);
+        return ${outputType}.decode(new ${Reader}(response));
+      });
+      return Promise.all(responses);
+    }
+  `;
+    return ts_poet_1.code `
+    ${methodDesc.name}(
+      ctx: Context,
+      request: ${inputType},
+    ): Promise<${outputType}> {
+      const dl = ctx.getDataLoader("${uniqueIdentifier}", () => {
+        return new ${dataloader}<${inputType}, ${outputType}>(
+          ${lambda},
+          { cacheKeyFn: ${hash}, ...ctx.rpcDataLoaderOptions },
+        );
+      });
+      return dl.load(request);
+    }
+  `;
 }
 /**
  * Creates an `Rpc.request(service, method, data)` abstraction.
@@ -173,32 +211,37 @@ function generateCachingRpcMethod(options, typeMap, fileDesc, serviceDesc, metho
  * we don't want our the barrel imports in `index.ts` to have multiple `Rpc`
  * types.
  */
-function generateRpcType(options) {
-    const data = ts_poet_1.TypeNames.anyType('Uint8Array');
-    let fn = ts_poet_1.FunctionSpec.create('request');
-    if (options.useContext) {
-        fn = fn.addParameter('ctx', 'Context');
+function generateRpcType(ctx) {
+    const { options } = ctx;
+    const maybeContext = options.useContext ? '<Context>' : '';
+    const maybeContextParam = options.useContext ? 'ctx: Context,' : '';
+    return ts_poet_1.code `
+    interface Rpc${maybeContext} {
+      request(
+        ${maybeContextParam}
+        service: string,
+        method: string,
+        data: Uint8Array
+      ): Promise<Uint8Array>;
     }
-    fn = fn
-        .addParameter('service', ts_poet_1.TypeNames.STRING)
-        .addParameter('method', ts_poet_1.TypeNames.STRING)
-        .addParameter('data', data)
-        .returns(ts_poet_1.TypeNames.PROMISE.param(data));
-    let rpc = ts_poet_1.InterfaceSpec.create('Rpc');
-    if (options.useContext) {
-        rpc = rpc.addTypeVariable(ts_poet_1.TypeNames.typeVariable('Context'));
-    }
-    rpc = rpc.addFunction(fn);
-    return rpc;
+  `;
 }
 exports.generateRpcType = generateRpcType;
 function generateDataLoadersType() {
     // TODO Maybe should be a generic `Context.get<T>(id, () => T): T` method
-    let fn = ts_poet_1.FunctionSpec.create('getDataLoader')
-        .addTypeVariable(ts_poet_1.TypeNames.typeVariable('T'))
-        .addParameter('identifier', ts_poet_1.TypeNames.STRING)
-        .addParameter('constructorFn', ts_poet_1.TypeNames.lambda2([], ts_poet_1.TypeNames.typeVariable('T')))
-        .returns(ts_poet_1.TypeNames.typeVariable('T'));
-    return ts_poet_1.InterfaceSpec.create('DataLoaders').addFunction(fn);
+    return ts_poet_1.code `
+    export interface DataLoaders {
+      rpcDataLoaderOptions?: DataLoaderOptions;
+      getDataLoader<T>(identifier: string, constructorFn: () => T): T;
+    }
+  `;
 }
 exports.generateDataLoadersType = generateDataLoadersType;
+function generateDataLoaderOptionsType() {
+    return ts_poet_1.code `
+    export interface DataLoaderOptions {
+      cache?: boolean;
+    }
+  `;
+}
+exports.generateDataLoaderOptionsType = generateDataLoaderOptionsType;
