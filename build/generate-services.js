@@ -33,9 +33,6 @@ function generateService(ctx, fileDesc, sourceInfo, serviceDesc) {
         const info = sourceInfo.lookup(sourceInfo_1.Fields.service.method, index);
         utils_1.maybeAddComment(info, chunks, (_a = methodDesc.options) === null || _a === void 0 ? void 0 : _a.deprecated);
         const params = [];
-        if (options.useContext) {
-            params.push(ts_poet_1.code `ctx: Context`);
-        }
         let inputType = types_1.requestType(ctx, methodDesc);
         // the grpc-web clients auto-`fromPartial` the input before handing off to grpc-web's
         // serde runtime, so it's okay to accept partial results from the client
@@ -43,6 +40,9 @@ function generateService(ctx, fileDesc, sourceInfo, serviceDesc) {
             inputType = ts_poet_1.code `${utils.DeepPartial}<${inputType}>`;
         }
         params.push(ts_poet_1.code `request: ${inputType}`);
+        if (options.useContext) {
+            params.push(ts_poet_1.code `ctx: Context`);
+        }
         // Use metadata as last argument for interface only configuration
         if (options.outputClientImpl === 'grpc-web') {
             params.push(ts_poet_1.code `metadata?: grpc.Metadata`);

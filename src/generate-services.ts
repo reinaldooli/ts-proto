@@ -52,9 +52,6 @@ export function generateService(
     maybeAddComment(info, chunks, methodDesc.options?.deprecated);
 
     const params: Code[] = [];
-    if (options.useContext) {
-      params.push(code`ctx: Context`);
-    }
 
     let inputType = requestType(ctx, methodDesc);
     // the grpc-web clients auto-`fromPartial` the input before handing off to grpc-web's
@@ -63,6 +60,10 @@ export function generateService(
       inputType = code`${utils.DeepPartial}<${inputType}>`;
     }
     params.push(code`request: ${inputType}`);
+
+    if (options.useContext) {
+      params.push(code`ctx: Context`);
+    }
 
     // Use metadata as last argument for interface only configuration
     if (options.outputClientImpl === 'grpc-web') {
