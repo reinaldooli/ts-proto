@@ -290,7 +290,7 @@ function makeTimestampMethods(options, longs) {
 }
 // When useOptionals=true, non-scalar fields are translated into optional properties.
 function isOptionalProperty(field, options) {
-    return options.useOptionals && types_1.isMessage(field) && !types_1.isRepeated(field);
+    return options.useOptionals && (types_1.isMessage(field) || types_1.isWithinOneOf(field)) && !types_1.isRepeated(field);
 }
 // Create the interface with properties
 function generateInterfaceDeclaration(ctx, fullName, messageDesc, sourceInfo) {

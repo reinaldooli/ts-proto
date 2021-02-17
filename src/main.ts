@@ -418,7 +418,7 @@ function makeTimestampMethods(options: Options, longs: ReturnType<typeof makeLon
 
 // When useOptionals=true, non-scalar fields are translated into optional properties.
 function isOptionalProperty(field: FieldDescriptorProto, options: Options): boolean {
-  return options.useOptionals && isMessage(field) && !isRepeated(field);
+  return options.useOptionals && (isMessage(field) || isWithinOneOf(field)) && !isRepeated(field);
 }
 
 // Create the interface with properties
