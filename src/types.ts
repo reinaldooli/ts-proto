@@ -483,7 +483,7 @@ export function toTypeName(ctx: Context, messageDesc: DescriptorProto, field: Fi
   // union with `undefined` here, either.
   const { options } = ctx;
   if (
-    (!isWithinOneOf(field) && isMessage(field) && !options.useOptionals) ||
+    (!isWithinOneOf(field) && (isMessage(field) || isPrimitive(field)) && !options.useOptionals) ||
     (isWithinOneOf(field) && options.oneof === OneofOption.PROPERTIES)
   ) {
     return code`${type} | undefined`;

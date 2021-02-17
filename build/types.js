@@ -465,7 +465,7 @@ function toTypeName(ctx, messageDesc, field) {
     // clause, spelling each option out inside a large type union. No need for
     // union with `undefined` here, either.
     const { options } = ctx;
-    if ((!isWithinOneOf(field) && isMessage(field) && !options.useOptionals) ||
+    if ((!isWithinOneOf(field) && (isMessage(field) || isPrimitive(field)) && !options.useOptionals) ||
         (isWithinOneOf(field) && options.oneof === options_1.OneofOption.PROPERTIES)) {
         return ts_poet_1.code `${type} | undefined`;
     }
